@@ -151,6 +151,7 @@ export async function testActorAction(actorId: string) {
     preview?: unknown[];
     leadsCreated?: number;
     duplicates?: number;
+    excluded?: number;
     sent?: number;
     error?: string | null;
   } | null;
@@ -165,6 +166,7 @@ export async function testActorAction(actorId: string) {
     preview: report?.preview ?? [],
     leadsCreated: report?.leadsCreated ?? 0,
     duplicates: report?.duplicates ?? 0,
+    excluded: report?.excluded ?? 0,
     sent: 0 as const,
     error: report?.error ?? ("error" in (done ?? {}) ? (done as { error?: string }).error : null) ?? null,
   };
@@ -174,7 +176,7 @@ export async function runActorAction(actorId: string) {
   const task = await enqueue({
     type: "RUN_APIFY_ACTOR",
     payload: { apifyActorId: actorId, testMode: false, ingest: true, pipeline: false },
-    timeoutMs: 180_000,
+    timeoutMs: 240_000,
   });
   refresh(actorId);
   return { taskId: task.id, runId: task.id };

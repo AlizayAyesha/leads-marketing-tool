@@ -23,13 +23,23 @@ const TASKS = [
   },
 ];
 
-export function HomeDirectory() {
+export function HomeDirectory({ socialAutomation = false }: { socialAutomation?: boolean }) {
+  const tasks = TASKS.map((item) => {
+    if (socialAutomation) return item;
+    if (item.href === "/outreach") {
+      return { ...item, detail: "Email drafts and the kill switch. Send from Home." };
+    }
+    if (item.href === "/integrations") {
+      return { ...item, detail: "Sheets, Apify, OpenAI keys." };
+    }
+    return item;
+  });
   return (
     <section className="mb-8">
       <h2 className="mb-1 font-[family-name:var(--font-syne)] text-lg">More</h2>
       <p className="mb-3 text-sm text-muted">Detail pages. Daily send stays on Home.</p>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {TASKS.map((item) => (
+        {tasks.map((item) => (
           <Link key={item.href} href={item.href} className="glass rounded-2xl p-4 hover:border-emerald-400/30">
             <p className="text-sm text-white">{item.title}</p>
             <p className="mt-1 text-xs text-muted">{item.detail}</p>

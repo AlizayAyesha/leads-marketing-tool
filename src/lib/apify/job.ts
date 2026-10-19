@@ -24,6 +24,8 @@ export type ActorJobReport = {
   preview: unknown[];
   leadsCreated: number;
   duplicates: number;
+  /** Agency / tech-peer rows removed because they match Business Profile exclusions. */
+  excluded: number;
   sent: 0;
   error: string | null;
   actorRunRowId: string | null;
@@ -36,6 +38,7 @@ async function liveApifyClient(): Promise<ApifyRunClient> {
     configured: Boolean(token.token),
     startRun: (input) => service.startRun(input),
     getDatasetItems: (datasetId, limit) => service.getDatasetItems(datasetId, limit),
+    getRun: (runId) => service.getRun(runId),
   };
 }
 
@@ -56,6 +59,7 @@ function failedReport(actorName: string, actorId: string, error: string): ActorJ
     preview: [],
     leadsCreated: 0,
     duplicates: 0,
+    excluded: 0,
     sent: 0,
     error,
     actorRunRowId: null,
@@ -114,6 +118,7 @@ export async function runConfiguredActorJob(input: {
       preview: [],
       leadsCreated: 0,
       duplicates: 0,
+      excluded: 0,
       sent: 0,
       actorRunRowId: row.id,
       error: blocked,
@@ -132,32 +137,46 @@ export async function runConfiguredActorJob(input: {
       datasetId: result.datasetId,
       status: result.status,
       error: result.error,
-      resultCount: result.itemCount,
+      resultCount: result.status === "SUCCEEDED" && input.ingest !== false ? 0 : result.itemCount,
       completedAt: result.status === "RUNNING" ? null : new Date(),
     },
   });
 
   let leadsCreated = 0;
   let duplicates = 0;
+  let excluded = 0;
   let storedIds: string[] = [];
-  if (result.status === "SUCCEEDED" && input.ingest !== false && result.items.length) {
-    const ingested = await ingestActorItems({
-      actor,
-      items: result.items,
-      runId: result.runId,
-      datasetId: result.datasetId,
-    });
-    leadsCreated = ingested.stored;
-    duplicates = ingested.duplicates;
-    storedIds = ingested.storedIds;
-    await prisma.actorRun.update({
-      where: { id: row.id },
-      data: { ingestedNew: ingested.stored },
-    });
-    await prisma.apifyActor.update({
-      where: { id: actor.id },
-      data: { lastSuccessAt: new Date(), leadsGenerated: { increment: ingested.stored } },
-    });
+  if (result.status === "SUCCEEDED" && input.ingest !== false && result.datasetId) {
+    if (result.items.length) {
+      const ingested = await ingestActorItems({
+        actor,
+        items: result.items,
+        runId: result.runId,
+        datasetId: result.datasetId,
+      });
+      leadsCreated = ingested.stored;
+      duplicates = ingested.duplicates;
+      excluded = ingested.skippedExcluded;
+      storedIds = ingested.storedIds;
+      await prisma.actorRun.update({
+        where: { id: row.id },
+        data: {
+          resultCount: result.items.length,
+          ingestedNew: ingested.stored,
+          excludedCount: ingested.skippedExcluded,
+          datasetImported: true,
+        },
+      });
+      await prisma.apifyActor.update({
+        where: { id: actor.id },
+        data: { lastSuccessAt: new Date(), leadsGenerated: { increment: ingested.stored } },
+      });
+    } else {
+      await prisma.actorRun.update({
+        where: { id: row.id },
+        data: { datasetImported: true, resultCount: 0 },
+      });
+    }
   } else if (result.status === "FAILED") {
     await prisma.apifyActor.update({
       where: { id: actor.id },
@@ -196,6 +215,7 @@ export async function runConfiguredActorJob(input: {
     preview: result.items.slice(0, 5),
     leadsCreated,
     duplicates,
+    excluded,
     sent: 0,
     actorRunRowId: row.id,
     error: result.error,

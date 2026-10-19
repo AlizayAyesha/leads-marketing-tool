@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { getApprovalQueue, getOutreachBoard } from "@/lib/queries";
 import { CHANNEL_LABEL } from "@/lib/config";
+import { socialAutomationEnabled } from "@/lib/features";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState, PageHeader } from "@/components/ui/page";
 import { ApprovalActions, ApproveAllBar } from "@/components/outreach/approval-actions";
@@ -52,6 +53,7 @@ export default async function OutreachPage() {
   const scrapers = await import("@/lib/actions/scraping")
     .then((mod) => mod.listZarScrapers())
     .catch(() => []);
+  const socialAutomation = socialAutomationEnabled();
   const gmailSendReady = connectionHasGmailSend(connection?.scopes);
   const testLead = session?.leadId
     ? await prisma.lead.findUnique({
@@ -112,7 +114,7 @@ export default async function OutreachPage() {
       <ScrapedSheetPrompt exhausted={sheetBatch.exhausted} actors={scrapeActors} scrapers={scrapers} />
       {board ? (
         <>
-          {linkedInDaily ? (
+          {socialAutomation && linkedInDaily ? (
             <LinkedInDailyPanel
               dashboard={linkedInDaily}
               pendingConnections={linkedinQueue.filter((draft) => draft.stepKind === LINKEDIN_CONNECT_STEP).length}
@@ -121,13 +123,14 @@ export default async function OutreachPage() {
               rankedMessages={linkedInProspects.messages}
             />
           ) : null}
-          {twitterDaily ? <TwitterDailyPanel dashboard={twitterDaily} /> : null}
-          <LinkedInBlockersPanel rows={linkedInBlockers} />
+          {socialAutomation && twitterDaily ? <TwitterDailyPanel dashboard={twitterDaily} /> : null}
+          {socialAutomation ? <LinkedInBlockersPanel rows={linkedInBlockers} /> : null}
           <OutreachEnginePanel
             policy={board.policy}
             sentToday={board.sentToday}
             gmailSendReady={gmailSendReady}
             googleEmail={connection?.googleEmail ?? null}
+            socialAutomation={socialAutomation}
           />
         </>
       ) : null}
@@ -139,6 +142,7 @@ export default async function OutreachPage() {
         policy={board?.policy ?? { sendsPaused: true, sendMode: "draft_only" }}
         googleEmail={connection?.googleEmail ?? null}
       />
+      {socialAutomation ? (
       <LinkedInTestSendPanel
         session={session}
         recipient={
@@ -159,6 +163,7 @@ export default async function OutreachPage() {
           sendReady: sendProvider.configured,
         }}
       />
+      ) : null}
       {board && board.testSequenceCount ? (
         <p className="mb-6 text-xs text-muted">
           TEST / E2E DATA hidden from this view: {board.testSequenceCount} active test sequence

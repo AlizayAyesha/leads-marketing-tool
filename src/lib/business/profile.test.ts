@@ -10,7 +10,7 @@ import {
 import { classifyBuyerRole } from "@/lib/outreach/buyer-icp";
 import { wantsOurServices } from "@/lib/outreach/wants-services";
 import { resolveAIConfig } from "@/lib/ai/config";
-import { socialAutomationEnabled } from "@/lib/features";
+import { socialAutomationEnabled, visibleHomeSendChannels } from "@/lib/features";
 
 afterEach(() => setActiveBusinessProfile(null));
 
@@ -74,5 +74,16 @@ describe("social automation flag", () => {
   it("is off by default", () => {
     assert.equal(socialAutomationEnabled({}), false);
     assert.equal(socialAutomationEnabled({ ENABLE_SOCIAL_AUTOMATION: "true" }), true);
+  });
+
+  it("shows only the email send card unless social automation is enabled", () => {
+    assert.deepEqual(visibleHomeSendChannels({}), ["email"]);
+    assert.deepEqual(visibleHomeSendChannels({ ENABLE_SOCIAL_AUTOMATION: "false" }), ["email"]);
+    assert.deepEqual(visibleHomeSendChannels({ ENABLE_SOCIAL_AUTOMATION: "true" }), [
+      "linkedin-connect",
+      "linkedin-message",
+      "twitter",
+      "email",
+    ]);
   });
 });

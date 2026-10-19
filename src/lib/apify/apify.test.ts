@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { guessMapping, mapActorItem } from "../actors/mapping";
+import { actorDatasetNeedsImport } from "./import-run";
 import { parseApifyCommand } from "./commands";
 import { applyResultCap, encodeActorId, testModeBlockedBySchema } from "./ids";
 import { apifySourceRef, mergeSourceRefs, wrapApifyRecord } from "./lineage";
@@ -67,6 +68,39 @@ describe("Apify command routing", () => {
 });
 
 describe("Apify Actor tool", () => {
+  it("polls a non-test run and imports the dataset once it succeeds", async () => {
+    let polls = 0;
+    const result = await runActor(
+      { actorId: "compass/crawler-google-places", testMode: false, pollForMs: 5_000 },
+      client({
+        startRun: async () => ({
+          id: "run-live",
+          status: "RUNNING",
+          defaultDatasetId: "ds-live",
+          startedAt: null,
+          finishedAt: null,
+          statusMessage: null,
+        }),
+        getRun: async () => {
+          polls += 1;
+          return {
+            id: "run-live",
+            status: "SUCCEEDED",
+            defaultDatasetId: "ds-live",
+            startedAt: null,
+            finishedAt: "2026-01-01T00:02:00.000Z",
+            statusMessage: null,
+          };
+        },
+        getDatasetItems: async () => [{ title: "Smile Dental", website: "https://smile.example" }],
+      }),
+    );
+    assert.equal(polls, 1);
+    assert.equal(result.status, "SUCCEEDED");
+    assert.equal(result.itemCount, 1);
+    assert.equal(result.datasetId, "ds-live");
+  });
+
   it("returns a structured successful run without inventing records", async () => {
     const result = await runActor({ actorId: "user/maps", testMode: true }, client());
     assert.equal(result.status, "SUCCEEDED");
@@ -174,6 +208,44 @@ describe("normalization and mapping", () => {
     assert.equal(mapping.facebookUrl, "facebook_url");
   });
 
+  it("maps Google Maps scraper keys without using the place URL as the website", () => {
+    const mapping = guessMapping([
+      "title",
+      "categoryName",
+      "address",
+      "website",
+      "phone",
+      "url",
+      "placeId",
+    ]);
+    assert.equal(mapping.company, "title");
+    assert.equal(mapping.website, "website");
+    assert.equal(mapping.industry, "categoryName");
+    assert.equal(mapping.location, "address");
+    assert.equal(mapping.sourceUrl, "url");
+  });
+
+  it("does not map a Maps place URL onto the website when that is the only URL", () => {
+    const mapping = guessMapping(["title", "categoryName", "url", "placeId"]);
+    assert.equal(mapping.company, "title");
+    assert.equal(mapping.website, undefined);
+    assert.equal(mapping.sourceUrl, "url");
+    const mapped = mapActorItem(
+      {
+        title: "Smile Dental",
+        categoryName: "Dentist",
+        url: "https://www.google.com/maps/place/Smile+Dental",
+        website: "https://www.google.com/maps/place/Smile+Dental",
+      },
+      { company: "title", industry: "categoryName", website: "website", sourceUrl: "url" },
+      { source: "apify:compass/crawler-google-places", sourceActor: "compass/crawler-google-places" },
+    );
+    assert.equal(mapped.company, "Smile Dental");
+    assert.equal(mapped.industry, "Dentist");
+    assert.equal(mapped.website, null);
+    assert.match(mapped.sourceUrl ?? "", /google\.com\/maps/);
+  });
+
   it("does not treat Instagram post URLs as business websites", () => {
     const mapping = guessMapping([
       "caption",
@@ -185,6 +257,27 @@ describe("normalization and mapping", () => {
     assert.equal(mapping.company, "ownerUsername");
     assert.equal(mapping.sourceUrl, "url");
     assert.equal(mapping.website, undefined);
+  });
+});
+
+describe("finished actor import", () => {
+  it("imports a succeeded run that has not been read yet", () => {
+    assert.equal(
+      actorDatasetNeedsImport({ status: "SUCCEEDED", datasetId: "ds", datasetImported: false, resultCount: 0, ingestedNew: 0 }),
+      true,
+    );
+  });
+
+  it("does not import a run that is still going, already read, or historically counted", () => {
+    assert.equal(actorDatasetNeedsImport({ status: "RUNNING", datasetId: "ds", resultCount: 0 }), false);
+    assert.equal(
+      actorDatasetNeedsImport({ status: "SUCCEEDED", datasetId: "ds", datasetImported: true, resultCount: 0 }),
+      false,
+    );
+    assert.equal(
+      actorDatasetNeedsImport({ status: "SUCCEEDED", datasetId: "ds", datasetImported: false, resultCount: 34 }),
+      false,
+    );
   });
 });
 

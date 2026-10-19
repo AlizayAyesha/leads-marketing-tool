@@ -35,6 +35,22 @@ describe("discover report copy", () => {
     assert.match(text, /1 skipped known URL · 8 skipped listing portals/);
   });
 
+  it("counts agency and tech-peer rows removed at import", () => {
+    const text = formatDiscoverSummary({
+      discovery: { new: 12, duplicates: 1, failed: 0, skipped: 0, skippedExcluded: 9 },
+      classification: {
+        classified: 12,
+        newThisRunEvaluated: 12,
+        existingUnclassifiedEvaluated: 0,
+        priority: 0,
+        nurture: 0,
+        rejected: 12,
+      },
+    });
+    assert.match(text, /9 removed \(agency\/tech\)/);
+    assert.match(text, /12 new/);
+  });
+
   it("does not fail Discover when Sheets credentials are expired", () => {
     const message = formatDiscoverOperatorMessage({
       summary: "Discovery: 28 new · 0 duplicates · 0 skipped known URLs. 28 new this run → 0 PRIORITY · 0 NURTURE · 28 REJECT.",

@@ -189,7 +189,7 @@ export function ScrapeNowControls({
                 const result = await runLeadScrapeAction(actorId);
                 if (result.error) throw new Error(result.error);
                 return [
-                  `Apify ${result.status}. Items ${result.items} · new leads ${result.leadsCreated} · duplicates ${result.duplicates}.`,
+                  `Apify ${result.status}. Items ${result.items} · new leads ${result.leadsCreated} · duplicates ${result.duplicates} · removed ${result.excluded ?? 0} (agency/tech).`,
                   result.sheet?.message ?? "Google Sheet updated.",
                   "Already-sent leads are marked SENT on the sheet. Nothing new was sent.",
                 ];

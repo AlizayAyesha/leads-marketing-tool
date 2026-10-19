@@ -12,7 +12,7 @@ import { summarizeLiveRun } from "@/lib/outreach/live-run-copy";
 import { Button } from "@/components/ui/button";
 import { TaskRunBanner, useTaskRun } from "@/components/ui/task-run-status";
 
-export function OutreachEngineRunButtons() {
+export function OutreachEngineRunButtons({ socialAutomation = false }: { socialAutomation?: boolean }) {
   const task = useTaskRun();
   return (
     <div>
@@ -46,7 +46,7 @@ export function OutreachEngineRunButtons() {
         </Button>
       </div>
       <p className="mt-2 text-xs text-muted">
-        This page prepares drafts and toggles policy. Live LinkedIn / X / email send is on Home.
+        This page prepares drafts and toggles policy. {socialAutomation ? "Live LinkedIn / X / email send is on Home." : "Live email send is on Home."}
       </p>
       <TaskRunBanner phase={task.phase} lines={task.lines} />
     </div>

@@ -20,7 +20,7 @@ Discover ──► Research ──► Qualify ──► Draft ──► Approve 
 
 - **Discover**: Google Maps and web search through *your own* Apify account, plus CSV, Google Sheets or manual entry.
 - **Research**: reads public company websites to find evidence (outdated site, no booking, hiring posts…).
-- **Qualify**: keeps leads that match your **Business Profile**: industries, locations, roles, demand keywords. Drops competitors, agencies, recruiters, juniors and any exclude keywords.
+- **Qualify**: keeps leads that match your **Business Profile**: industries, locations, roles, demand keywords. Drops competitors, agencies, recruiters, juniors and any exclude keywords. Company listings from Google Maps are kept as a **Profile match** (with a score) when they fit that profile and have a website or email. The stricter buying-intent qualification still runs and can mark a lead DISQUALIFIED when there is no explicit request — that does not remove the Profile match.
 - **Draft**: email (and optional LinkedIn/X) drafts using your business name, services and booking link.
 - **Approve**: nothing goes out until you approve it. A global **kill switch is ON by default**.
 - **Email**: sends through your connected Gmail inbox(es), with sender identity, postal address and an unsubscribe line in every email. Opt-outs are suppressed automatically.
@@ -81,7 +81,7 @@ All variables live in `.env.local` (template: [`.env.example`](.env.example)).
 | `JARVIS_DAILY_SEND_LIMIT` | | `10` | Global daily send cap |
 | `QUEUE_PROCESS_SECRET` | | | Secret for `/api/queue/process` |
 | `CREDENTIAL_ENCRYPTION_KEY` | recommended | derived | Encrypts stored keys/tokens (`openssl rand -hex 32`) |
-| `ENABLE_SOCIAL_AUTOMATION` | | `false` | LinkedIn/X browser automation module |
+| `ENABLE_SOCIAL_AUTOMATION` | | `false` | LinkedIn/X browser automation. Off hides those send cards; Home shows Email only |
 | `LINKEDIN_SCHEDULER_URL` | | | Your Calendly/Cal.com link for the booking hop |
 | `FIRECRAWL_API_KEY`, `PDL_API_KEY` | | | Optional providers |
 | `NEXT_PUBLIC_SUPABASE_*` | | | Optional multi-user auth |
@@ -126,6 +126,10 @@ Discovery scrapers run on **your** Apify account, so scraping costs and limits a
 
 Watch actor run costs in the Apify console. Start with small result limits.
 
+Google Maps actors (including `compass/crawler-google-places`) put the place link in a field like `url`. That link is stored as the source. It is not the company's website, so it does not fail the portal/search filter. Import drops agencies and tech peers that match your Business Profile exclusions and reports how many were removed. Google Maps categories such as Internet marketing service, Marketing agency, Advertising agency, and Website designer count as agencies. A company that fits your industries and locations and has a real website or email is saved as a **Profile match** with a score. Buying-intent qualification still runs afterwards and can mark the same lead DISQUALIFIED when there is no explicit request.
+
+A full (non-test) actor run can stay **RUNNING** while Apify finishes. The app polls for a few minutes, then **Sync results** on the actor page — or the queue worker — reads the dataset and imports it.
+
 ## Business Profile guide
 
 The Business Profile decides **who counts as a lead**. Edit it in **Business Profile** (sidebar), or commit a `business-profile.json` (see [`business-profile.example.json`](business-profile.example.json)). It's loaded at startup, and anything saved in the app takes precedence.
@@ -163,7 +167,7 @@ With no sender inboxes connected, sends use the single Google connection from **
 
 - **Cold email**: CAN-SPAM (US), GDPR/ePrivacy and PECR (EU/UK), CASL (Canada) and similar laws apply. Defaults: sender identity + `OUTREACH_SENDER_ADDRESS` + unsubscribe line in every email, `List-Unsubscribe` header, automatic suppression of opt-outs, conservative caps, approval queue, kill switch ON. Some regions (for example under GDPR) need a legitimate-interest assessment or consent before you email people.
 - **Scraping**: only collect public business data you're allowed to process, and respect each site's terms and robots rules.
-- **LinkedIn / X automation (optional, OFF)**: [LinkedIn's User Agreement](https://www.linkedin.com/legal/user-agreement) bans bots, scripts and browser automation for messaging and connection requests, and [X's Terms](https://x.com/en/tos) ban automating or scripting the site without permission. LinkedIn has taken legal action against automation and scraping tools. Turning on `ENABLE_SOCIAL_AUTOMATION=true` drives a signed-in browser and **can get your accounts restricted or banned**. Daily caps do not make it allowed. With the flag off (default), LinkedIn/X drafts are still created so you can send them **by hand**.
+- **LinkedIn / X automation (optional, OFF)**: [LinkedIn's User Agreement](https://www.linkedin.com/legal/user-agreement) bans bots, scripts and browser automation for messaging and connection requests, and [X's Terms](https://x.com/en/tos) ban automating or scripting the site without permission. LinkedIn has taken legal action against automation and scraping tools. Turning on `ENABLE_SOCIAL_AUTOMATION=true` drives a signed-in browser and **can get your accounts restricted or banned**. Daily caps do not make it allowed. With the flag off (default), Home shows only the Email send card. LinkedIn connect, LinkedIn message, and X cards stay hidden, as do the LinkedIn Send and Chrome setup links. LinkedIn/X drafts are still created so you can send them **by hand**.
 
 ## Troubleshooting
 
@@ -171,11 +175,13 @@ With no sender inboxes connected, sends use the single Google connection from **
 | --- | --- |
 | `Can't reach database server` | `docker compose up -d`; use `127.0.0.1`, not `localhost`; check port 5432 is free |
 | Prisma client errors after pulling | `npm run db:generate` (or `npm run setup`) |
+| Unknown column `profileFitStatus` or `datasetImported` | `npm run db:push` so import can store Profile match and actor-run import state |
 | AI shows heuristic mode | Set `OPENROUTER_API_KEY` or `OPENAI_API_KEY`, restart the dev server |
 | OpenRouter `429` | Free-model rate limit. Wait, add credits, or change `AI_MODEL` |
 | OpenRouter `402` | Negative balance or key credit limit. Check [openrouter.ai/settings/keys](https://openrouter.ai/settings/keys) |
 | Apify "not connected" | Set `APIFY_TOKEN` or save it in **Connect → Apify** |
 | No leads pass the filter | Loosen the Business Profile (more roles/industries, turn off `requireDemandSignal`) |
+| Google Maps import keeps 0 leads | Place links (`google.com/maps`) are the source, not the company website. A full actor run stays in progress until it finishes; use **Sync results** on the actor page (or the queue worker) to import the dataset. Agencies and tech peers that match your exclusions are removed and counted separately from Profile matches |
 | Nothing sends | Kill switch is ON by default. Also check the daily caps, sender inbox limits and suppression list |
 | `SENDER_CAPS_REACHED` | All inboxes hit their daily limit. Wait until tomorrow (UTC) or raise a limit |
 | Google OAuth `redirect_uri_mismatch` | Add `GOOGLE_REDIRECT_URI` to the OAuth client's authorised redirect URIs |

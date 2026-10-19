@@ -13,3 +13,12 @@ export const SOCIAL_AUTOMATION_DISABLED_REASON =
 export function socialAutomationEnabled(env: Record<string, string | undefined> = process.env) {
   return (env.ENABLE_SOCIAL_AUTOMATION ?? "").trim().toLowerCase() === "true";
 }
+
+/** Home → Send cards. LinkedIn and X only appear when social automation is on. */
+export const HOME_SEND_CHANNELS = ["linkedin-connect", "linkedin-message", "twitter", "email"] as const;
+
+export type HomeSendChannel = (typeof HOME_SEND_CHANNELS)[number];
+
+export function visibleHomeSendChannels(env: Record<string, string | undefined> = process.env): HomeSendChannel[] {
+  return socialAutomationEnabled(env) ? [...HOME_SEND_CHANNELS] : ["email"];
+}

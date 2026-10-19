@@ -47,6 +47,7 @@ export async function runFullScrapeThenSheet(input: {
   let duplicates = 0;
   let skippedKnown = 0;
   let skippedPortals = 0;
+  let skippedExcluded = 0;
   let failed = 0;
   let apifyQuotaHit = false;
   const startedAt = new Date();
@@ -93,9 +94,14 @@ export async function runFullScrapeThenSheet(input: {
         }));
         created = report.leadsCreated ?? 0;
         actorDuplicates = report.duplicates ?? 0;
+        const removed = "excluded" in report ? Number(report.excluded ?? 0) : 0;
+        skippedExcluded += removed;
         if (!report.error) {
           ok = true;
-          lastError = `${created} new leads · ${actorDuplicates} duplicates · ${report.items ?? 0} items`;
+          const stillRunning = "status" in report && report.status === "RUNNING";
+          lastError = stillRunning
+            ? `Actor still running. Sync the actor run after it finishes to import results. ${report.items ?? 0} items so far.`
+            : `${created} new leads · ${actorDuplicates} duplicates · ${removed} removed (agency/tech) · ${report.items ?? 0} items`;
           break;
         }
         lastError = report.error;
@@ -190,6 +196,7 @@ export async function runFullScrapeThenSheet(input: {
     failed,
     skipped: skippedKnown,
     skippedPortals,
+    skippedExcluded,
   };
 
   const { classifyUnclassifiedProductionLeads } = await import("@/lib/intelligence/persist-opportunity");

@@ -1,4 +1,5 @@
 import { integrationStatus } from "@/lib/env";
+import { socialAutomationEnabled } from "@/lib/features";
 import { prisma } from "@/lib/db/prisma";
 import { listDataSources } from "@/lib/data-sources";
 import { addSuppression, saveBusinessPolicyAction } from "@/lib/actions/settings";
@@ -38,7 +39,9 @@ export default async function SettingsPage() {
       />
 
       <section className="mb-8 grid gap-3 md:grid-cols-2">
-        {Object.values(integrations).map((item) => (
+        {Object.entries(integrations)
+          .filter(([key]) => socialAutomationEnabled() || (key !== "linkedinSend" && key !== "linkedinConnectionStatus"))
+          .map(([, item]) => (
           <article key={item.label} className="glass rounded-2xl p-5">
             <div className="mb-2 flex items-center justify-between">
               <h2 className="font-[family-name:var(--font-syne)]">{item.label}</h2>

@@ -9,11 +9,13 @@ export function OutreachEnginePanel({
   sentToday,
   gmailSendReady,
   googleEmail,
+  socialAutomation = false,
 }: {
   policy: OutreachEnginePolicy;
   sentToday: number;
   gmailSendReady: boolean;
   googleEmail?: string | null;
+  socialAutomation?: boolean;
 }) {
   return (
     <section className="mb-8 glass rounded-2xl p-5">
@@ -28,11 +30,12 @@ export function OutreachEnginePanel({
             {policy.sendsPaused ? "on" : "off"}.
           </p>
         </div>
-        <OutreachEngineRunButtons />
+        <OutreachEngineRunButtons socialAutomation={socialAutomation} />
       </div>
       <p className="mb-4 text-xs text-muted">
-        Click run and Jarvis owns it: kill switch off, LinkedIn Daily on, X Daily on, auto-send for PASS email that
-        clears commercial gates, Approve-all for eligible drafts, follow-ups queued. You do not toggle these by hand.
+        {socialAutomation
+          ? "Click run and Jarvis owns it: kill switch off, LinkedIn Daily on, X Daily on, auto-send for PASS email that clears commercial gates, Approve-all for eligible drafts, follow-ups queued. You do not toggle these by hand."
+          : "Click run and Jarvis owns it: kill switch off, auto-send for PASS email that clears commercial gates, Approve-all for eligible drafts, follow-ups queued. You do not toggle these by hand."}
       </p>
 
       <details className="mb-4 rounded-xl border border-white/10 p-3">
@@ -77,25 +80,37 @@ export function OutreachEnginePanel({
           <Label htmlFor="bookingUrl">Meeting booking URL</Label>
           <Input id="bookingUrl" name="bookingUrl" defaultValue={policy.bookingUrl} placeholder="https://…" />
           <p className="mt-1 text-xs text-muted">
-            Email fallback and LinkedIn hop destination if LINKEDIN_SCHEDULER_URL is unset. LinkedIn DMs still send /go/linkedin?source=linkedin&lead=… — never on a problem. The hop 302s to Calendly with attribution.
+            {socialAutomation
+              ? "Email fallback and LinkedIn hop destination if LINKEDIN_SCHEDULER_URL is unset. LinkedIn DMs still send /go/linkedin?source=linkedin&lead=… — never on a problem. The hop 302s to Calendly with attribution."
+              : "Meeting link used in email."}
           </p>
         </div>
         <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" name="emailEnabled" defaultChecked={policy.emailEnabled} />
           Email sequences
         </label>
-        <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" name="linkedinDrafts" defaultChecked={policy.linkedinDrafts} />
-          LinkedIn drafts
-        </label>
+        {socialAutomation ? (
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" name="linkedinDrafts" defaultChecked={policy.linkedinDrafts} />
+            LinkedIn drafts
+          </label>
+        ) : policy.linkedinDrafts ? (
+          <input type="hidden" name="linkedinDrafts" value="on" />
+        ) : null}
         <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" name="instagramDrafts" defaultChecked={policy.instagramDrafts} />
           Instagram drafts
         </label>
-        <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" name="twitterDrafts" defaultChecked={policy.twitterDrafts} />
-          X / Twitter drafts
-        </label>
+        {socialAutomation ? (
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" name="twitterDrafts" defaultChecked={policy.twitterDrafts} />
+            X / Twitter drafts
+          </label>
+        ) : policy.twitterDrafts ? (
+          <input type="hidden" name="twitterDrafts" value="on" />
+        ) : null}
+        {socialAutomation ? (
+          <>
         <div>
           <Label htmlFor="twitterDmDailyCap">X DM sends / day</Label>
           <Input
@@ -129,6 +144,8 @@ export function OutreachEnginePanel({
             defaultValue={policy.linkedinMessageDailyCap}
           />
         </div>
+          </>
+        ) : null}
         <div className="md:col-span-2">
           <EngineSaveControls />
           {gmailSendReady ? (
@@ -142,8 +159,9 @@ export function OutreachEnginePanel({
       </form>
       </details>
       <p className="mt-4 text-xs text-muted">
-        LinkedIn and X use Jarvis Chrome. Instagram stays draft-only. Replies stop a sequence. Daily caps are Jarvis
-        ceilings. Keep /api/queue/process on a schedule so follow-ups keep moving.
+        {socialAutomation ? "LinkedIn and X use Jarvis Chrome. " : ""}
+        Instagram stays draft-only. Replies stop a sequence. Daily caps are Jarvis ceilings. Keep /api/queue/process on
+        a schedule so follow-ups keep moving.
       </p>
     </section>
   );

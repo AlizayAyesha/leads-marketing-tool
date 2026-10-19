@@ -79,6 +79,9 @@ export default async function LeadDetailPage({
 
       <div className="mb-6 flex flex-wrap gap-2">
         <Badge tone="muted">{lead.status}</Badge>
+        {lead.profileFitStatus === "KEPT" ? (
+          <Badge>Profile match {lead.profileFitScore ?? ""}</Badge>
+        ) : null}
         {lead.temperature ? <Badge tone={lead.temperature}>{lead.temperature}</Badge> : null}
         {opportunity?.selection ? (
           <Badge
@@ -96,6 +99,12 @@ export default async function LeadDetailPage({
         {score ? <Badge>BUY_NOW {typeof (score.breakdown as { buyNowScore?: number })?.buyNowScore === "number" ? (score.breakdown as { buyNowScore: number }).buyNowScore : score.score}</Badge> : null}
         {audit ? <Badge tone={audit.verdict === "PASS" ? "default" : audit.verdict === "HOLD" ? "WARM" : "DISQUALIFIED"}>{audit.verdict}</Badge> : null}
         {lead.suppressed ? <Badge tone="DISQUALIFIED">Suppressed</Badge> : null}
+        {lead.profileFitStatus === "KEPT" && lead.temperature === "DISQUALIFIED" ? (
+          <p className="mt-3 w-full text-sm text-emerald-100/90">
+            {lead.profileFitReason ||
+              "Profile match is separate from buying-intent qualification. This company stays in the file."}
+          </p>
+        ) : null}
         {lead.traces[0] ? <Badge tone="muted">trace {lead.traces[0].id.slice(0, 8)}</Badge> : null}
         {lead.signalSets[0] ? <Badge tone="muted">signals</Badge> : null}
         {lead.outcomes[0] ? <Badge tone="muted">outcome {lead.outcomes[0].status}</Badge> : null}

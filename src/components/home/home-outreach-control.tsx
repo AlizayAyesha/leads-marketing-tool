@@ -85,6 +85,7 @@ export function HomeOutreachControl({
   lastLeadsWritten = 0,
   draftOnly = true,
   killSwitchOn = true,
+  socialAutomation = false,
   emailPulse,
   socialPulse,
 }: {
@@ -97,6 +98,8 @@ export function HomeOutreachControl({
   lastLeadsWritten?: number;
   draftOnly?: boolean;
   killSwitchOn?: boolean;
+  /** LinkedIn / X send cards. Off unless ENABLE_SOCIAL_AUTOMATION=true. */
+  socialAutomation?: boolean;
   emailPulse?: {
     emailsSentToday: number;
     dailyCap: number;
@@ -194,7 +197,9 @@ export function HomeOutreachControl({
           </div>
           <div className="flex flex-wrap gap-2">
             <GateChip ok={!killSwitchOn} label={killSwitchOn ? "Sends paused" : "Sends on"} />
-            <GateChip ok={chromeConnected} label={chromeConnected ? "Chrome ready" : "Chrome opens on send"} />
+            {socialAutomation ? (
+              <GateChip ok={chromeConnected} label={chromeConnected ? "Chrome ready" : "Chrome opens on send"} />
+            ) : null}
             {!draftOnly ? <GateChip ok label="Live mode" /> : null}
           </div>
         </div>
@@ -253,7 +258,9 @@ export function HomeOutreachControl({
           <p className="text-[11px] uppercase tracking-[0.2em] text-emerald-400/80">2 · Send</p>
           <p className="mt-1 text-sm text-muted">
             {canSend
-              ? "Each click sends up to 10. Watch Jarvis Chrome for LinkedIn and X."
+              ? socialAutomation
+                ? "Each click sends up to 10. Watch Jarvis Chrome for LinkedIn and X."
+                : "Each click sends up to 10 emails."
               : "Turn the kill switch off in Outreach before sending."}
           </p>
           {!canSend ? (
@@ -262,11 +269,13 @@ export function HomeOutreachControl({
               <Link href="/outreach" className="underline underline-offset-2">
                 Open Outreach
               </Link>{" "}
-              to turn Daily on and clear the kill switch.
+              {socialAutomation ? "to turn Daily on and clear the kill switch." : "to clear the kill switch."}
             </p>
           ) : null}
 
-          <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div className={socialAutomation ? "mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4" : "mt-4 grid max-w-md gap-3"}>
+            {socialAutomation ? (
+            <>
             <ChannelCard
               title="LinkedIn connect"
               ready={`${liReadyConn} buyers`}
@@ -364,6 +373,8 @@ export function HomeOutreachControl({
                 })
               }
             />
+            </>
+            ) : null}
             <ChannelCard
               title="Email"
               ready={`${emailReady} ready`}
@@ -402,9 +413,9 @@ export function HomeOutreachControl({
             />
           </div>
 
-          <TaskRunBanner phase={channel.phase} lines={channel.lines} />
-          <TaskRunBanner phase={liConnect.phase} lines={liConnect.lines} />
-          <TaskRunBanner phase={liMessage.phase} lines={liMessage.lines} />
+          {socialAutomation ? <TaskRunBanner phase={channel.phase} lines={channel.lines} /> : null}
+          {socialAutomation ? <TaskRunBanner phase={liConnect.phase} lines={liConnect.lines} /> : null}
+          {socialAutomation ? <TaskRunBanner phase={liMessage.phase} lines={liMessage.lines} /> : null}
           <TaskRunBanner phase={emailRun.phase} lines={emailRun.lines} />
         </div>
 
@@ -419,9 +430,11 @@ export function HomeOutreachControl({
           <Link href="/outreach" className="text-emerald-300 hover:underline">
             Approvals &amp; status
           </Link>
-          <Link href="/integrations/browser" className="text-emerald-300 hover:underline">
-            Chrome
-          </Link>
+          {socialAutomation ? (
+            <Link href="/integrations/browser" className="text-emerald-300 hover:underline">
+              Chrome
+            </Link>
+          ) : null}
           <details className="w-full pt-1">
             <summary className="cursor-pointer text-muted hover:text-emerald-200">Advanced: website engines &amp; Apify</summary>
             <div className="mt-3">

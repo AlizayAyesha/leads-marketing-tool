@@ -1,4 +1,5 @@
 import { operationalCapabilities } from "@/lib/capabilities/operational";
+import { socialAutomationEnabled } from "@/lib/features";
 import { integrationStatus } from "@/lib/env";
 import { getOverviewMetrics, getLeadTable, getAgentCenter } from "@/lib/queries";
 import { getSalesEvidenceBoard } from "@/lib/analytics/sales";
@@ -58,6 +59,7 @@ export default async function OverviewPage() {
     salesFunnel = null;
   }
 
+  const socialAutomation = socialAutomationEnabled();
   const integrations = integrationStatus();
   const capabilities = await operationalCapabilities();
   const chrome = getChromeSession();
@@ -92,7 +94,11 @@ export default async function OverviewPage() {
       <PageHeader
         eyebrow="Home"
         title="Leads Marketing Tool"
-        description="Find buyers. Send from the four cards. Read ready counts and skip reasons."
+        description={
+          socialAutomation
+            ? "Find buyers. Send from the four cards. Read ready counts and skip reasons."
+            : "Find buyers. Send email from Home. Read ready counts and skip reasons."
+        }
       />
 
       <HomeOutreachControl
@@ -111,9 +117,10 @@ export default async function OverviewPage() {
         killSwitchOn={outreachPolicy?.sendsPaused !== false}
         emailPulse={emailPulse}
         socialPulse={socialPulse}
+        socialAutomation={socialAutomation}
       />
 
-      <HomeDirectory />
+      <HomeDirectory socialAutomation={socialAutomation} />
 
       <Suspense fallback={<section className="glass mb-8 rounded-2xl p-5 text-sm text-muted">Loading connections…</section>}>
         <HomeConnections
@@ -121,6 +128,7 @@ export default async function OverviewPage() {
           chromeProfile={chrome.profile}
           googleEmail={google?.googleEmail ?? null}
           gmailSendReady={connectionHasGmailSend(google?.scopes)}
+          socialAutomation={socialAutomation}
         />
       </Suspense>
 
@@ -182,6 +190,9 @@ export default async function OverviewPage() {
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
+                  {lead.profileFitStatus === "KEPT" ? (
+                    <Badge>Profile match {lead.profileFitScore ?? ""}</Badge>
+                  ) : null}
                   {lead.opportunities[0]?.selection ? (
                     <Badge
                       tone={
@@ -278,7 +289,9 @@ export default async function OverviewPage() {
           <div>
             <h3 className="mb-3 text-sm text-muted">What Jarvis can do</h3>
             <div className="grid gap-2 md:grid-cols-2">
-              {capabilities.map((item) => (
+              {capabilities
+                .filter((item) => socialAutomation || (item.id !== "linkedin_send" && item.id !== "browser"))
+                .map((item) => (
                 <article key={item.id} className="flex items-start justify-between gap-3 rounded-xl border border-white/5 px-3 py-2">
                   <div>
                     <p className="text-sm text-white">{item.name}</p>
@@ -313,7 +326,12 @@ export default async function OverviewPage() {
                     <Badge tone={agent.status === "RUNNING" ? "HOT" : "default"}>{agent.status}</Badge>
                   </div>
                 ))}
-                {(integrations ? Object.values(integrations) : []).map((item) => (
+                {(integrations
+                  ? Object.entries(integrations).filter(
+                      ([key]) => socialAutomation || (key !== "linkedinSend" && key !== "linkedinConnectionStatus"),
+                    )
+                  : []
+                ).map(([, item]) => (
                   <div key={item.label} className="flex items-center justify-between">
                     <span>{item.label}</span>
                     <Badge tone={item.configured ? "default" : "muted"}>

@@ -5,6 +5,7 @@ import { integrationStatus } from "@/lib/env";
 import { apifyTokenPublicStatus } from "@/lib/secrets";
 import { pdlTokenPublicStatus } from "@/lib/pdl/secrets";
 import { openaiStatusSummary } from "@/lib/ai/credentials";
+import { socialAutomationEnabled } from "@/lib/features";
 import { getChromeSession } from "@/lib/tools/chrome";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -56,15 +57,19 @@ export default async function IntegrationsPage() {
         ? `Licensed person enrichment/search ${pdl.hint ?? ""}`.trim()
         : "Add a PDL API key. Jarvis will not log into LinkedIn.",
     },
-    {
-      title: "LinkedIn send",
-      href: "/integrations/linkedin",
-      status: chrome.status === "CONNECTED" ? "connected" : "pending",
-      detail:
-        chrome.status === "CONNECTED"
-          ? "Jarvis Chrome session ready for LinkedIn account actions."
-          : "Connect Jarvis Chrome and sign into LinkedIn. Agent-Reach is research only.",
-    },
+    ...(socialAutomationEnabled()
+      ? [
+          {
+            title: "LinkedIn send",
+            href: "/integrations/linkedin",
+            status: chrome.status === "CONNECTED" ? "connected" : "pending",
+            detail:
+              chrome.status === "CONNECTED"
+                ? "Jarvis Chrome session ready for LinkedIn account actions."
+                : "Connect Jarvis Chrome and sign into LinkedIn. Agent-Reach is research only.",
+          },
+        ]
+      : []),
     {
       title: "Google Sheets",
       href: "/integrations/sheets",
@@ -79,15 +84,19 @@ export default async function IntegrationsPage() {
         ? `${openai.enabled} enabled · ${openai.policy}${openai.failover ? " · failover on" : ""}`
         : env.openai.detail,
     },
-    {
-      title: "Jarvis Chrome",
-      href: "/integrations/browser",
-      status: chrome.status === "CONNECTED" ? "connected" : "pending",
-      detail:
-        chrome.status === "CONNECTED"
-          ? `Chrome session: ${chrome.profile}. LinkedIn account actions use this session.`
-          : "Connect Jarvis Chrome. It opens its own window, then LinkedIn. Everyday Chrome is not used.",
-    },
+    ...(socialAutomationEnabled()
+      ? [
+          {
+            title: "Jarvis Chrome",
+            href: "/integrations/browser",
+            status: chrome.status === "CONNECTED" ? "connected" : "pending",
+            detail:
+              chrome.status === "CONNECTED"
+                ? `Chrome session: ${chrome.profile}. LinkedIn account actions use this session.`
+                : "Connect Jarvis Chrome. It opens its own window, then LinkedIn. Everyday Chrome is not used.",
+          },
+        ]
+      : []),
   ];
 
   return (
@@ -95,7 +104,11 @@ export default async function IntegrationsPage() {
       <PageHeader
         eyebrow="Integrations center"
         title="Connect sources, not scrapers"
-        description="Register any compatible Apify Actor. Jarvis normalizes output into standard leads. PostgreSQL stays the source of truth. For Gmail + LinkedIn together, use Connect Google + LinkedIn on Home — it does not send or turn Daily ON."
+        description={
+          socialAutomationEnabled()
+            ? "Register any compatible Apify Actor. Jarvis normalizes output into standard leads. PostgreSQL stays the source of truth. For Gmail + LinkedIn together, use Connect Google + LinkedIn on Home — it does not send or turn Daily ON."
+            : "Register any compatible Apify Actor. Jarvis normalizes output into standard leads. PostgreSQL stays the source of truth. Connect Google on Home for email and sheets."
+        }
         actions={
           <Button asChild>
             <Link href="/integrations/actors/new">Add Actor</Link>
