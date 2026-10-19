@@ -54,6 +54,7 @@ export function ConversationPanel({
   linkSentAt,
   ctaClickedAt,
   bookedAt,
+  socialAutomation = false,
 }: {
   stage?: string | null;
   signal?: string | null;
@@ -72,6 +73,7 @@ export function ConversationPanel({
   linkSentAt?: Date | string | null;
   ctaClickedAt?: Date | string | null;
   bookedAt?: Date | string | null;
+  socialAutomation?: boolean;
 }) {
   const current =
     stopped
@@ -92,9 +94,10 @@ export function ConversationPanel({
   return (
     <div className="space-y-3 text-sm">
       <p className="text-muted">
-        KPI is qualified conversations → meetings → clients. The LinkedIn booking link is{" "}
-        <strong>/go/linkedin</strong> — only after meeting intent. When LinkedIn Daily Outreach is ON,
-        Jarvis sends via your authenticated Chrome session.
+        KPI is qualified conversations → meetings → clients.
+        {socialAutomation
+          ? " The LinkedIn booking link is /go/linkedin — only after meeting intent. When LinkedIn Daily Outreach is ON, Jarvis sends via your authenticated Chrome session."
+          : " Email is the send channel. LinkedIn and Instagram notes stay for you to send by hand."}
       </p>
       <div className="rounded-md border border-zinc-800 bg-zinc-950/60 p-3 text-xs text-zinc-300">
         <p className="font-medium text-zinc-100">Before you approve a draft, ask:</p>

@@ -116,7 +116,15 @@ export async function runActor(
       items,
       startedAt: run.startedAt,
       finishedAt: run.finishedAt,
-      error: fetchError ? redactSecrets(fetchError) : run.statusMessage,
+      // Apify sets statusMessage on success ("Scraping finished…"). That is not a failure.
+      error:
+        status === "SUCCEEDED"
+          ? fetchError
+            ? redactSecrets(fetchError)
+            : null
+          : status === "RUNNING"
+            ? null
+            : redactSecrets(run.statusMessage || `${status}: Actor run did not succeed.`),
       sent: 0,
     };
   } catch (error) {

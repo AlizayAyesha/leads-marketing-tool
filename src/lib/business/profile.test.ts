@@ -10,7 +10,7 @@ import {
 import { classifyBuyerRole } from "@/lib/outreach/buyer-icp";
 import { wantsOurServices } from "@/lib/outreach/wants-services";
 import { resolveAIConfig } from "@/lib/ai/config";
-import { socialAutomationEnabled, visibleHomeSendChannels } from "@/lib/features";
+import { leadSocialSendVisible, socialAutomationEnabled, visibleHomeSendChannels } from "@/lib/features";
 
 afterEach(() => setActiveBusinessProfile(null));
 
@@ -85,5 +85,11 @@ describe("social automation flag", () => {
       "twitter",
       "email",
     ]);
+  });
+
+  it("hides the lead LinkedIn connection card unless social automation is enabled", () => {
+    assert.equal(leadSocialSendVisible({}), false);
+    assert.equal(leadSocialSendVisible({ ENABLE_SOCIAL_AUTOMATION: "false" }), false);
+    assert.equal(leadSocialSendVisible({ ENABLE_SOCIAL_AUTOMATION: "true" }), true);
   });
 });

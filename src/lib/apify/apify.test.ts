@@ -108,6 +108,27 @@ describe("Apify Actor tool", () => {
     assert.equal(result.datasetId, "ds1");
     assert.equal(result.itemCount, 1);
     assert.equal(result.sent, 0);
+    assert.equal(result.error, null);
+  });
+
+  it("does not treat a success status message as an error", async () => {
+    const result = await runActor(
+      { actorId: "compass/crawler-google-places", testMode: true },
+      client({
+        startRun: async () => ({
+          id: "run-ok",
+          status: "SUCCEEDED",
+          defaultDatasetId: "ds-ok",
+          startedAt: null,
+          finishedAt: "2026-01-01T00:02:00.000Z",
+          statusMessage: "Scraping finished. You can view all scraped places in the dataset.",
+        }),
+        getDatasetItems: async () => [{ title: "Smile Dental", website: "https://smile.example" }],
+      }),
+    );
+    assert.equal(result.status, "SUCCEEDED");
+    assert.equal(result.error, null);
+    assert.equal(result.itemCount, 1);
   });
 
   it("marks a failed Actor as FAILED and keeps the real error", async () => {

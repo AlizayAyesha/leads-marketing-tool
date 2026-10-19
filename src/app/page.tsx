@@ -118,6 +118,7 @@ export default async function OverviewPage() {
         emailPulse={emailPulse}
         socialPulse={socialPulse}
         socialAutomation={socialAutomation}
+        gmailSendReady={connectionHasGmailSend(google?.scopes)}
       />
 
       <HomeDirectory socialAutomation={socialAutomation} />

@@ -86,6 +86,7 @@ export function HomeOutreachControl({
   draftOnly = true,
   killSwitchOn = true,
   socialAutomation = false,
+  gmailSendReady = false,
   emailPulse,
   socialPulse,
 }: {
@@ -100,6 +101,7 @@ export function HomeOutreachControl({
   killSwitchOn?: boolean;
   /** LinkedIn / X send cards. Off unless ENABLE_SOCIAL_AUTOMATION=true. */
   socialAutomation?: boolean;
+  gmailSendReady?: boolean;
   emailPulse?: {
     emailsSentToday: number;
     dailyCap: number;
@@ -179,6 +181,15 @@ export function HomeOutreachControl({
   const twSkipMix = socialPulse?.twitter.skipMix ?? [];
   const emailReady = emailPulse?.readyEmails ?? Math.min(waveLimit, remainingToday);
   const emailSkipHint = emailPulse?.lastSkipHint ?? null;
+  const emailReadyLabel = gmailSendReady ? `${emailReady} ready` : "No sender connected";
+  const emailHint = gmailSendReady
+    ? (emailSkipHint ??
+      (lastWaveSent != null
+        ? `Last wave: ${lastWaveFiltered ?? 0} filtered · ${lastWaveSent} sent`
+        : remainingToday > 0
+          ? `${remainingToday} left today`
+          : "Daily cap reached"))
+    : "Gmail send: missing. Connect Google before sending.";
 
   const busy = discover.pending || live.pending || channel.pending || liConnect.pending || liMessage.pending || emailRun.pending;
   const canSend = !killSwitchOn;
@@ -207,7 +218,10 @@ export function HomeOutreachControl({
         {/* Step 1 — Find */}
         <div className="mt-6 rounded-2xl border border-white/10 bg-black/20 p-4">
           <p className="text-[11px] uppercase tracking-[0.2em] text-emerald-400/80">1 · Find</p>
-          <p className="mt-1 text-sm text-muted">Discover new leads into your sheet, or use people you already imported.</p>
+          <p className="mt-1 text-sm text-muted">Discover new leads into your leads list, or use people you already imported.</p>
+          <p className="mt-1 text-xs text-muted">
+            Find leads runs Apify searches on your own Apify key and uses your Apify credits.
+          </p>
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <Button
               disabled={busy}
@@ -377,20 +391,15 @@ export function HomeOutreachControl({
             ) : null}
             <ChannelCard
               title="Email"
-              ready={`${emailReady} ready`}
+              ready={emailReadyLabel}
               sent={`${emailsSentToday} / ${dailyCap}`}
-              hint={
-                emailSkipHint ??
-                (lastWaveSent != null
-                  ? `Last wave: ${lastWaveFiltered ?? 0} filtered · ${lastWaveSent} sent`
-                  : remainingToday > 0
-                    ? `${remainingToday} left today`
-                    : "Daily cap reached")
+              hint={emailHint}
+              actionLabel={
+                !gmailSendReady ? "No sender" : remainingToday <= 0 ? "Cap reached" : `Email ≤${Math.min(waveLimit, remainingToday)}`
               }
-              actionLabel={remainingToday <= 0 ? "Cap reached" : `Email ≤${Math.min(waveLimit, remainingToday)}`}
               pendingLabel="Sending…"
               pending={emailRun.pending}
-              disabled={busy || !canSend || remainingToday <= 0}
+              disabled={busy || !canSend || !gmailSendReady || remainingToday <= 0}
               onClick={() =>
                 emailRun.run(async () => {
                   const result = await runHomeChannelAction("email");

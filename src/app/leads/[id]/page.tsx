@@ -18,6 +18,7 @@ import { ConversationPanel } from "@/components/leads/conversation-panel";
 import { isPostConnectionMessageDue } from "@/lib/linkedin/connection/machine";
 import type { LinkedInConnectionStatus } from "@/lib/linkedin/connection/types";
 import { CommercialBriefPanel } from "@/components/leads/commercial-brief-panel";
+import { leadSocialSendVisible } from "@/lib/features";
 import { parseBriefFromEvidenceItems, parseStoredCommercialBrief } from "@/lib/intelligence/brief-parse";
 import type { EvidenceFinding } from "@/types";
 
@@ -238,6 +239,7 @@ export default async function LeadDetailPage({
           )}
         </section>
 
+        {leadSocialSendVisible() ? (
         <section className="glass rounded-2xl p-5 xl:col-span-2">
           <h2 className="mb-3 font-[family-name:var(--font-syne)] text-lg">LinkedIn connection</h2>
           <LinkedInConnectionPanel
@@ -250,10 +252,12 @@ export default async function LeadDetailPage({
             })}
           />
         </section>
+        ) : null}
 
         <section className="glass rounded-2xl p-5 xl:col-span-2">
           <h2 className="mb-3 font-[family-name:var(--font-syne)] text-lg">Conversation</h2>
           <ConversationPanel
+            socialAutomation={leadSocialSendVisible()}
             stage={lead.conversations[0]?.stage}
             signal={lead.conversations[0]?.signal}
             problem={lead.conversations[0]?.problem}

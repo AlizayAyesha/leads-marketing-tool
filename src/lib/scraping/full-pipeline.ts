@@ -1,7 +1,7 @@
 import "server-only";
 
 import { prisma } from "@/lib/db/prisma";
-import { actorAllowedInFullScrape, shouldFallbackToConnectedScrapers, shouldRetryScrapeError } from "@/lib/scraping/pipeline-policy";
+import { actorAllowedInFullScrape, shouldFallbackToConnectedScrapers, shouldRetryActorAttempt } from "@/lib/scraping/pipeline-policy";
 import { runConnectedScraperFallback } from "@/lib/scraping/fallback";
 import { formatDiscoverOperatorMessage, formatDiscoverSummary, type DiscoverCounters } from "@/lib/scraping/discover-report-types";
 import type { ClassifyCounts } from "@/lib/intelligence/persist-opportunity";
@@ -96,16 +96,19 @@ export async function runFullScrapeThenSheet(input: {
         actorDuplicates = report.duplicates ?? 0;
         const removed = "excluded" in report ? Number(report.excluded ?? 0) : 0;
         skippedExcluded += removed;
-        if (!report.error) {
-          ok = true;
-          const stillRunning = "status" in report && report.status === "RUNNING";
-          lastError = stillRunning
-            ? `Actor still running. Sync the actor run after it finishes to import results. ${report.items ?? 0} items so far.`
-            : `${created} new leads · ${actorDuplicates} duplicates · ${removed} removed (agency/tech) · ${report.items ?? 0} items`;
+        const status = "status" in report ? report.status : null;
+        if (status === "SUCCEEDED" || !report.error) {
+          ok = status === "SUCCEEDED" ? !report.error : true;
+          const stillRunning = status === "RUNNING";
+          lastError = report.error
+            ? report.error
+            : stillRunning
+              ? `Actor still running. Sync the actor run after it finishes to import results. ${report.items ?? 0} items so far.`
+              : `${created} new leads · ${actorDuplicates} duplicates · ${removed} removed (agency/tech) · ${report.items ?? 0} items`;
           break;
         }
         lastError = report.error;
-        if (!shouldRetryScrapeError(report.error)) {
+        if (!shouldRetryActorAttempt({ status, error: report.error })) {
           if (/usage hard limit|quota|payment/i.test(report.error)) apifyQuotaHit = true;
           break;
         }

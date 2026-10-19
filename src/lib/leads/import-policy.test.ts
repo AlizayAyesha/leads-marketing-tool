@@ -81,6 +81,30 @@ describe("import policy", () => {
     }
   });
 
+  it("keeps a real-estate developer and a property developer", () => {
+    for (const industry of ["Real estate developer", "Property developer"]) {
+      const decision = decideImportLead({
+        company: "Palm Homes",
+        industry,
+        location: "Dubai",
+        website: "https://palm.example",
+      });
+      assert.equal(decision.action, "store", industry);
+      assert.equal(decision.profile?.status, "KEPT", industry);
+      assert.equal(listingExclusion(industry), null, industry);
+    }
+  });
+
+  it("still removes a software developer", () => {
+    const decision = decideImportLead({
+      company: "Acme",
+      industry: "Software developer",
+      website: "https://acme.example",
+    });
+    assert.equal(decision.action, "skip-excluded");
+    assert.equal(listingExclusion("Developer at a software company")?.code, "PEER_BUILDER_OR_DESIGNER");
+  });
+
   it("keeps a real-estate agency", () => {
     const decision = decideImportLead({
       company: "Palm Homes",
