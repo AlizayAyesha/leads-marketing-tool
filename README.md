@@ -5,6 +5,8 @@ Describe your business and ideal customer once. The tool finds matching business
 
 > Built by **Zar Labs** ([zarlabs.online](https://zarlabs.online)) · License: **AGPL-3.0**
 
+https://github.com/user-attachments/assets/6012feda-24ea-44e8-84b8-692a1ad41649
+
 Stack: Next.js 16 · TypeScript · Prisma + PostgreSQL · Apify · OpenRouter / OpenAI · Playwright (optional)
 
 ---
