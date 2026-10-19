@@ -1,4 +1,5 @@
 import type { RawLeadInput } from "@/types";
+import { isGoogleMapsUrl } from "@/lib/scraping/maps-url";
 
 export const JARVIS_LEAD_FIELDS = [
   "name",
@@ -23,7 +24,7 @@ export type OutputMapping = Partial<Record<JarvisLeadField, string>>;
 
 const GUESSES: Record<JarvisLeadField, string[]> = {
   name: ["name", "fullName", "full_name", "ownerName", "contactName", "personName"],
-  company: ["company", "organizationName", "organization_name", "orgName", "businessName", "business_name", "companyName", "placeName", "ownerUsername", "ownerFullName", "name", "domain"],
+  company: ["company", "organizationName", "organization_name", "orgName", "businessName", "business_name", "companyName", "placeName", "title", "ownerUsername", "ownerFullName", "name", "domain"],
   website: ["website", "websiteUrl", "companyWebsite", "organization_website_url", "url", "domain", "site"],
   email: ["primaryEmail", "primary_email", "workEmail", "work_email", "leadEmail", "extractedEmails", "email", "emails", "emailAddress", "mail"],
   phone: ["primaryPhone", "primary_phone", "mobilePhone", "mobile_phone", "contactPhone", "extractedPhones", "mapsPhone", "maps_phone", "websitePhone", "phone", "phoneNumber", "phoneUnformatted", "telephone", "mobile"],
@@ -33,7 +34,7 @@ const GUESSES: Record<JarvisLeadField, string[]> = {
   twitterUrl: ["xUrl", "x_url", "twitterUrl", "twitter_url", "twitter", "x"],
   source: ["source"],
   location: ["address", "location", "city", "country", "locationQuery"],
-  industry: ["category", "industry", "categories", "keyword"],
+  industry: ["categoryName", "category_name", "category", "industry", "categories", "keyword"],
   originalPost: ["text", "post", "originalPost", "description"],
   notes: ["description", "about", "bio", "notes"],
   sourceUrl: ["googleMapsUrl", "google_maps_url", "mapsUrl", "sourceUrl", "profileUrl", "url", "link"],
@@ -62,6 +63,14 @@ export function guessMapping(sampleKeys: string[]): OutputMapping {
     ["ownerUsername", "ownerFullName", "shortCode", "caption"].includes(key),
   );
   if (looksSocial && mapping.website && mapping.website === mapping.sourceUrl) {
+    delete mapping.website;
+  }
+  const looksLikeMapsListing = sampleKeys.some((key) =>
+    ["categoryName", "category_name", "placeId", "searchString", "totalScore", "reviewsCount", "googleMapsUrl", "google_maps_url"].includes(
+      key,
+    ),
+  );
+  if (looksLikeMapsListing && mapping.website && mapping.website === mapping.sourceUrl) {
     delete mapping.website;
   }
   return mapping;
@@ -133,6 +142,11 @@ export function mapActorItem(
   };
 
   let website = pick("website");
+  let sourceUrl = pick("sourceUrl");
+  if (isGoogleMapsUrl(website)) {
+    sourceUrl = sourceUrl ?? website;
+    website = null;
+  }
   const facebookUrl = pick("facebookUrl");
   const instagramUrl = pick("instagramUrl");
   const linkedinUrl = pick("linkedinUrl");
@@ -170,7 +184,7 @@ export function mapActorItem(
     originalPost: pick("originalPost"),
     notes: pick("notes"),
     sourceActor: extras.sourceActor,
-    sourceUrl: pick("sourceUrl"),
+    sourceUrl,
     rawPayload: item,
   };
 }

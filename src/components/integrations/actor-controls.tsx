@@ -32,6 +32,7 @@ export function ActorControls({ actorId, active }: { actorId: string; active: bo
                 `Preview: ${Math.min(5, result.preview.length)} records`,
                 `Leads created: ${result.leadsCreated}`,
                 `Duplicates: ${result.duplicates}`,
+                `Removed (agency/tech): ${result.excluded ?? 0}`,
                 `Run ID: ${result.runId ?? "n/a"}`,
                 `Dataset ID: ${result.datasetId ?? "n/a"}`,
                 `External messages sent: ${result.sent}`,

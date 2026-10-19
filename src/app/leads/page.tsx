@@ -45,7 +45,7 @@ export default async function LeadsPage() {
             <table className="w-full min-w-[960px] text-left text-sm">
               <thead className="text-[11px] uppercase tracking-[0.16em] text-muted">
                 <tr className="border-b border-white/5">
-                  {["Lead", "Company", "Source", "Score", "Audit", "Status", "Selection", "Service", "Activity"].map(
+                  {["Lead", "Company", "Source", "Score", "Fit", "Audit", "Status", "Selection", "Service", "Activity"].map(
                     (header) => (
                       <th key={header} className="px-4 py-3 font-medium">
                         {header}
@@ -66,6 +66,13 @@ export default async function LeadsPage() {
                     <td className="px-4 py-3">{lead.company || "—"}</td>
                     <td className="px-4 py-3 text-muted">{lead.source || "—"}</td>
                     <td className="px-4 py-3">{lead.scores[0]?.score ?? "—"}</td>
+                    <td className="px-4 py-3">
+                      {lead.profileFitStatus === "KEPT" ? (
+                        <Badge>Profile match {lead.profileFitScore ?? ""}</Badge>
+                      ) : (
+                        <span className="text-muted">—</span>
+                      )}
+                    </td>
                     <td className="px-4 py-3">
                       {lead.audits[0] ? (
                         <Badge

@@ -15,6 +15,7 @@ type ActorState = {
   startedAt: string | null;
   completedAt: string | null;
   resultCount: number;
+  excludedCount: number;
   errorCount: number;
   externalRunId: string | null;
   error: string | null;
@@ -70,7 +71,7 @@ export function CampaignMonitor({
               </Badge>
             </div>
             <p className="mt-2 text-sm text-muted">
-              {actor.resultCount} results · {actor.errorCount} errors
+              {actor.resultCount} results · {actor.excludedCount} removed (agency/tech) · {actor.errorCount} errors
               {actor.externalRunId ? ` · ${actor.externalRunId}` : ""}
             </p>
             <p className="mt-1 text-xs text-muted">

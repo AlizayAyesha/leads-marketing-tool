@@ -48,6 +48,7 @@ export default async function CampaignRunPage({
             startedAt: item.startedAt?.toISOString() ?? null,
             completedAt: item.completedAt?.toISOString() ?? null,
             resultCount: item.resultCount,
+            excludedCount: item.excludedCount,
             errorCount: item.errorCount,
             externalRunId: item.externalRunId,
             error: item.error,

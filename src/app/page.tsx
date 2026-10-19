@@ -182,6 +182,9 @@ export default async function OverviewPage() {
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
+                  {lead.profileFitStatus === "KEPT" ? (
+                    <Badge>Profile match {lead.profileFitScore ?? ""}</Badge>
+                  ) : null}
                   {lead.opportunities[0]?.selection ? (
                     <Badge
                       tone={

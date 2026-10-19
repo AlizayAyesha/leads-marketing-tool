@@ -4,6 +4,8 @@ export type DiscoverCounters = {
   failed: number;
   skipped: number;
   skippedPortals?: number;
+  /** Agencies and tech peers dropped at import. */
+  skippedExcluded?: number;
 };
 
 export type ClassifyReportCounters = {
@@ -21,9 +23,11 @@ export function formatDiscoverSummary(input: {
 }) {
   const { discovery, classification } = input;
   const portalSkip = discovery.skippedPortals ?? 0;
+  const excluded = discovery.skippedExcluded ?? 0;
   const skipBits = [
     `${discovery.skipped} skipped known URL${discovery.skipped === 1 ? "" : "s"}`,
     portalSkip ? `${portalSkip} skipped listing portal${portalSkip === 1 ? "" : "s"}` : null,
+    excluded ? `${excluded} removed (agency/tech)` : null,
     discovery.failed ? `${discovery.failed} failed` : null,
   ].filter(Boolean);
   const discoveryLine = `Discovery: ${discovery.new} new · ${discovery.duplicates} duplicate${discovery.duplicates === 1 ? "" : "s"} · ${skipBits.join(" · ")}.`;

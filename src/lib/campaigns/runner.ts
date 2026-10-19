@@ -6,6 +6,7 @@ import { prisma } from "@/lib/db/prisma";
 import { getActorProvider } from "@/lib/actors/registry";
 import { applyResultCap, testModeBlockedBySchema } from "@/lib/apify/service";
 import { ingestActorItems } from "@/lib/apify/job";
+import { actorDatasetNeedsImport } from "@/lib/apify/import-run";
 import { exportEnrichedRows } from "@/lib/data-sources/google";
 import { IntegrationPendingError } from "@/lib/data-sources/types";
 import { enqueue, processQueue } from "@/lib/queue/engine";
@@ -182,7 +183,7 @@ export async function syncCampaignRun(campaignRunId: string) {
   if (!run) throw new Error("Campaign run not found");
 
   for (const actorRun of run.actorRuns) {
-    if (isTerminal(actorRun.status) && actorRun.resultCount > 0) continue;
+    if (isTerminal(actorRun.status) && actorRun.datasetImported && actorRun.resultCount > 0) continue;
     if (isTerminal(actorRun.status) && !actorRun.datasetId) continue;
     if (!actorRun.externalRunId) continue;
     try {
@@ -212,6 +213,19 @@ export async function syncCampaignRun(campaignRunId: string) {
     include: { actorRuns: { include: { actor: true } }, campaign: true },
   });
   if (!fresh) throw new Error("Campaign run not found");
+
+  for (const actorRun of fresh.actorRuns) {
+    if (actorDatasetNeedsImport(actorRun)) {
+      try {
+        await collectActorResults(actorRun.id, fresh.campaignId);
+      } catch (error) {
+        await prisma.actorRun.update({
+          where: { id: actorRun.id },
+          data: { error: error instanceof Error ? error.message : "Result collection failed" },
+        });
+      }
+    }
+  }
 
   const pending = fresh.actorRuns.filter((item) => !isTerminal(item.status));
   if (pending.length > 0) {
@@ -249,10 +263,31 @@ export async function syncStandaloneActorRun(actorRunId: string) {
     include: { actor: true },
   });
   if (!updated) throw new Error("Actor run not found");
-  if (updated.status === "SUCCEEDED" && updated.datasetId && updated.resultCount === 0) {
+  if (actorDatasetNeedsImport(updated)) {
     await collectActorResults(updated.id);
   }
   return prisma.actorRun.findUnique({ where: { id: actorRunId } });
+}
+
+/** Pull finished standalone actor runs (full runs return before Apify is done). */
+export async function syncOpenActorRuns(limit = 8) {
+  const rows = await prisma.actorRun.findMany({
+    where: {
+      externalRunId: { not: null },
+      testMode: false,
+      OR: [
+        { status: { in: ["QUEUED", "STARTING", "RUNNING"] } },
+        { status: "SUCCEEDED", datasetImported: false, datasetId: { not: null }, resultCount: 0, ingestedNew: 0 },
+      ],
+    },
+    orderBy: { createdAt: "desc" },
+    take: limit,
+  });
+  const synced = [];
+  for (const row of rows) {
+    synced.push(await syncStandaloneActorRun(row.id));
+  }
+  return synced;
 }
 
 async function finalizeCampaignRun(campaignRunId: string) {
@@ -335,7 +370,16 @@ async function collectActorResults(actorRunId: string, campaignId?: string) {
     where: { id: actorRunId },
     include: { actor: true },
   });
-  if (!row?.datasetId) return { collected: 0, stored: 0, duplicates: 0, storedIds: [] as string[] };
+  if (!row?.datasetId) return { collected: 0, stored: 0, duplicates: 0, excluded: 0, storedIds: [] as string[] };
+  if (row.datasetImported || row.resultCount > 0 || row.ingestedNew > 0) {
+    return {
+      collected: row.resultCount,
+      stored: row.ingestedNew,
+      duplicates: 0,
+      excluded: row.excludedCount,
+      storedIds: [] as string[],
+    };
+  }
 
   const limit = row.testMode ? TEST_LIMIT : FULL_LIMIT;
   const items = await getActorProvider(row.provider).results(row.datasetId, limit);
@@ -352,6 +396,8 @@ async function collectActorResults(actorRunId: string, campaignId?: string) {
     data: {
       resultCount: items.length,
       ingestedNew: ingested.stored,
+      excludedCount: ingested.skippedExcluded,
+      datasetImported: true,
     },
   });
   await prisma.apifyActor.update({
@@ -367,6 +413,7 @@ async function collectActorResults(actorRunId: string, campaignId?: string) {
     collected: items.length,
     stored: ingested.stored,
     duplicates: ingested.duplicates,
+    excluded: ingested.skippedExcluded,
     storedIds: ingested.storedIds,
   };
 }

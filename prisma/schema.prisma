@@ -170,6 +170,10 @@ model Lead {
 
   status         LeadStatus       @default(NEW)
   temperature    LeadTemperature?
+  /** Company-level Business Profile fit. Separate from buying-intent qualification. */
+  profileFitStatus String?
+  profileFitScore  Int?
+  profileFitReason String?
   missingFields  Json             @default("[]")
   websiteHost    String?
   externalRowId  String?
@@ -1074,6 +1078,9 @@ model ActorRun {
   input         Json             @default("{}")
   resultCount   Int              @default(0)
   ingestedNew   Int              @default(0)
+  excludedCount Int              @default(0)
+  /** True after a successful dataset has been read for import (including zero kept rows). */
+  datasetImported Boolean        @default(false)
   errorCount    Int              @default(0)
   error         String?
   startedAt     DateTime?

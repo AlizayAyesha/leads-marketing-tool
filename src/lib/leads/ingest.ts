@@ -10,7 +10,8 @@ import { mergeSourceRefs, type ApifySourceRef } from "@/lib/apify/lineage";
 import { stopSequencesForLead } from "@/lib/outreach/sequence";
 import { parseLeadInput } from "@/lib/contracts/lead-input";
 import { classifyLeadEnvironment, isTestLeadRecord } from "@/lib/analytics/production";
-import { isNonBuyerDiscoveryHost } from "@/lib/scraping/non-buyer-host";
+import { decideImportLead } from "@/lib/leads/import-policy";
+import { isGoogleMapsUrl } from "@/lib/scraping/maps-url";
 import type { RawLeadInput } from "@/types";
 
 export type IngestableLead = RawLeadInput & {
@@ -34,6 +35,7 @@ export async function ingestLeads(input: {
   let skippedEmpty = 0;
   let skippedInvalid = 0;
   let skippedNonBuyer = 0;
+  let skippedExcluded = 0;
 
   for (const raw of input.leads) {
     const parsed = parseLeadInput(raw);
@@ -42,11 +44,44 @@ export async function ingestLeads(input: {
       else skippedInvalid += 1;
       continue;
     }
-    const normalized = parsed.normalized;
-    if (isNonBuyerDiscoveryHost(normalized.website) || isNonBuyerDiscoveryHost(raw.sourceUrl)) {
+    const decision = decideImportLead({
+      name: parsed.normalized.name,
+      company: parsed.normalized.company,
+      website: parsed.normalized.website,
+      email: parsed.normalized.email,
+      industry: parsed.normalized.industry,
+      location: parsed.normalized.location,
+      notes: parsed.normalized.notes,
+      sourceUrl: raw.sourceUrl,
+    });
+    if (decision.action === "skip-non-buyer") {
       skippedNonBuyer += 1;
       continue;
     }
+    if (decision.action === "skip-excluded") {
+      skippedExcluded += 1;
+      continue;
+    }
+    const normalized = {
+      ...parsed.normalized,
+      website: decision.website,
+      websiteHost: decision.websiteHost,
+      missingFields: decision.website
+        ? parsed.normalized.missingFields
+        : Array.from(new Set([...parsed.normalized.missingFields, "website"])),
+    };
+    const sourceUrl = decision.sourceUrl ?? raw.sourceUrl ?? null;
+    const profileData = decision.profile
+      ? {
+          profileFitStatus: decision.profile.status,
+          profileFitScore: decision.profile.score,
+          profileFitReason: decision.profile.reason,
+        }
+      : {
+          profileFitStatus: null,
+          profileFitScore: null,
+          profileFitReason: null,
+        };
 
     const blocked = (await readSuppressionState({
       email: normalized.email,
@@ -57,7 +92,7 @@ export async function ingestLeads(input: {
     const existing = await findDuplicate(normalized);
     const extras = {
       sourceActor: raw.sourceActor ?? null,
-      sourceUrl: raw.sourceUrl ?? null,
+      sourceUrl,
       sourceRunId: raw.sourceRunId ?? null,
       sourceDatasetId: raw.sourceDatasetId ?? null,
       sourceRef: raw.sourceRef as ApifySourceRef | undefined,
@@ -70,7 +105,8 @@ export async function ingestLeads(input: {
         data: {
           name: existing.name ?? normalized.name,
           company: existing.company ?? normalized.company,
-          website: existing.website ?? normalized.website,
+          website: isGoogleMapsUrl(existing.website) ? normalized.website : (existing.website ?? normalized.website),
+          websiteHost: isGoogleMapsUrl(existing.website) ? normalized.websiteHost : (existing.websiteHost ?? normalized.websiteHost),
           email: existing.email ?? normalized.email,
           phone: existing.phone ?? normalized.phone,
           linkedinUrl: existing.linkedinUrl ?? normalized.linkedinUrl,
@@ -81,6 +117,9 @@ export async function ingestLeads(input: {
           industry: existing.industry ?? normalized.industry,
           sourceActor: existing.sourceActor ?? extras.sourceActor,
           sourceUrl: existing.sourceUrl ?? extras.sourceUrl,
+          profileFitStatus: existing.profileFitStatus ?? profileData.profileFitStatus,
+          profileFitScore: existing.profileFitScore ?? profileData.profileFitScore,
+          profileFitReason: existing.profileFitReason ?? profileData.profileFitReason,
           sourceRunId: existing.sourceRunId ?? extras.sourceRunId,
           sourceDatasetId: existing.sourceDatasetId ?? extras.sourceDatasetId,
           sourceRefs: mergeSourceRefs(existing.sourceRefs, extras.sourceRef ?? apifyRefFromExtras(extras)),
@@ -159,6 +198,9 @@ export async function ingestLeads(input: {
           company: normalized.company,
         }),
         status: blocked ? "DO_NOT_CONTACT" : "NEW",
+        profileFitStatus: profileData.profileFitStatus,
+        profileFitScore: profileData.profileFitScore,
+        profileFitReason: profileData.profileFitReason,
         lastActivityAt: new Date(),
         sourceActor: extras.sourceActor,
         sourceUrl: extras.sourceUrl,
@@ -190,6 +232,7 @@ export async function ingestLeads(input: {
     skippedEmpty,
     skippedInvalid,
     skippedNonBuyer,
+    skippedExcluded,
     leadIds: stored,
     storedIds,
     duplicateIds: duplicates,

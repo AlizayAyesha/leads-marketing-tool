@@ -6,6 +6,7 @@ import { formatDate } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/ui/page";
 import { ActorControls } from "@/components/integrations/actor-controls";
+import { ActorRunSync } from "@/components/integrations/actor-run-sync";
 import { ActorInputForm } from "@/components/integrations/actor-input-form";
 import { ActorMappingForm } from "@/components/integrations/actor-mapping-form";
 
@@ -73,12 +74,19 @@ export default async function ActorDetailPage({
         <div className="space-y-2 text-sm">
           {actor.runs.length === 0 ? <p className="text-muted">No runs yet.</p> : null}
           {actor.runs.map((run) => (
-            <div key={run.id} className="flex flex-wrap justify-between gap-3 border-b border-white/5 pb-2">
+            <div key={run.id} className="flex flex-wrap items-center justify-between gap-3 border-b border-white/5 pb-2">
               <span>
-                {run.status} · {run.testMode ? "test" : "full"} · {run.resultCount} results
+                {run.status} · {run.testMode ? "test" : "full"} · {run.resultCount} results · {run.ingestedNew} new ·{" "}
+                {run.excludedCount} removed
                 {run.externalRunId ? ` · ${run.externalRunId}` : ""}
               </span>
-              <span className="text-muted">{formatDate(run.createdAt)}</span>
+              <span className="flex flex-wrap items-center gap-3 text-muted">
+                {["RUNNING", "STARTING", "QUEUED"].includes(run.status) ||
+                (run.status === "SUCCEEDED" && !run.datasetImported && run.resultCount === 0 && run.ingestedNew === 0) ? (
+                  <ActorRunSync runId={run.id} />
+                ) : null}
+                {formatDate(run.createdAt)}
+              </span>
             </div>
           ))}
         </div>

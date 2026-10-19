@@ -67,6 +67,70 @@ export function parseLinkedInCardIdentity(blob?: string | null) {
   return { displayName, headline, company };
 }
 
+/**
+ * Agency / tech-peer / recruiter / junior exclusions from company, category, or title text.
+ * Does not require a person's job title — company and category are enough.
+ * Returns null when nothing in the Business Profile exclusions matches.
+ */
+export function listingExclusion(text: string): BuyerFit | null {
+  const profile = getBusinessProfile();
+  const compiled = compiledProfile(profile);
+  const trimmed = text.trim();
+  if (!trimmed) return null;
+  if (compiled.competitors.test(trimmed)) {
+    return { ok: false, code: "AGENCY_HOLDER", reason: "Listed as a competitor in your Business Profile." };
+  }
+  if (compiled.exclude.test(trimmed)) {
+    return { ok: false, code: "NON_BUYER_ROLE", reason: "Matches an exclude keyword in your Business Profile." };
+  }
+  if (profile.excludeTechCompanies && /coders|\bengineering\b/i.test(trimmed)) {
+    return {
+      ok: false,
+      code: "TECH_PEER_COMPANY",
+      reason:
+        "Software / AI / IT / coding company. Do not connect or pitch tech companies — only non-tech businesses that need tech built for them.",
+    };
+  }
+  if (profile.excludeAgencies && COMPETITOR_AGENCY_RE.test(trimmed)) {
+    return {
+      ok: false,
+      code: "AGENCY_HOLDER",
+      reason: "Digital / marketing / web agency — excluded by your Business Profile.",
+    };
+  }
+  if (profile.excludeRecruiters && HR_RE.test(trimmed)) {
+    return {
+      ok: false,
+      code: "HR_OR_RECRUITER",
+      reason: "HR / recruiter — excluded by your Business Profile.",
+    };
+  }
+  if (profile.excludeTechCompanies && (DESIGNER_RE.test(trimmed) || PEER_BUILDER_RE.test(trimmed))) {
+    return {
+      ok: false,
+      code: "PEER_BUILDER_OR_DESIGNER",
+      reason:
+        "Software/AI/coding practitioner or designer. Do not connect or pitch peers who already build tech.",
+    };
+  }
+  if (profile.excludeTechCompanies && TECH_PEER_COMPANY_RE.test(trimmed)) {
+    return {
+      ok: false,
+      code: "TECH_PEER_COMPANY",
+      reason:
+        "Software / AI / IT / coding company. Do not connect or pitch tech companies — only non-tech businesses that need tech built for them.",
+    };
+  }
+  if (profile.excludeJuniorRoles && JUNIOR_NON_BUYER_RE.test(trimmed)) {
+    return {
+      ok: false,
+      code: "NON_BUYER_ROLE",
+      reason: "Junior / non-decision-maker role.",
+    };
+  }
+  return null;
+}
+
 export function classifyBuyerRole(
   roleOrHeadline?: string | null,
   company?: string | null,
@@ -82,57 +146,8 @@ export function classifyBuyerRole(
       reason: "No role/headline. Do not pitch until we know they are a business buyer.",
     };
   }
-  if (compiled.competitors.test(text)) {
-    return { ok: false, code: "AGENCY_HOLDER", reason: "Listed as a competitor in your Business Profile." };
-  }
-  if (compiled.exclude.test(text)) {
-    return { ok: false, code: "NON_BUYER_ROLE", reason: "Matches an exclude keyword in your Business Profile." };
-  }
-  if (profile.excludeTechCompanies && /coders|\bengineering\b/i.test(text)) {
-    return {
-      ok: false,
-      code: "TECH_PEER_COMPANY",
-      reason:
-        "Software / AI / IT / coding company. Do not connect or pitch tech companies — only non-tech businesses that need tech built for them.",
-    };
-  }
-  if (profile.excludeAgencies && COMPETITOR_AGENCY_RE.test(text)) {
-    return {
-      ok: false,
-      code: "AGENCY_HOLDER",
-      reason: "Digital / marketing / web agency — excluded by your Business Profile.",
-    };
-  }
-  if (profile.excludeRecruiters && HR_RE.test(text)) {
-    return {
-      ok: false,
-      code: "HR_OR_RECRUITER",
-      reason: "HR / recruiter — excluded by your Business Profile.",
-    };
-  }
-  if (profile.excludeTechCompanies && (DESIGNER_RE.test(text) || PEER_BUILDER_RE.test(text))) {
-    return {
-      ok: false,
-      code: "PEER_BUILDER_OR_DESIGNER",
-      reason:
-        "Software/AI/coding practitioner or designer. Do not connect or pitch peers who already build tech.",
-    };
-  }
-  if (profile.excludeTechCompanies && TECH_PEER_COMPANY_RE.test(text)) {
-    return {
-      ok: false,
-      code: "TECH_PEER_COMPANY",
-      reason:
-        "Software / AI / IT / coding company. Do not connect or pitch tech companies — only non-tech businesses that need tech built for them.",
-    };
-  }
-  if (profile.excludeJuniorRoles && JUNIOR_NON_BUYER_RE.test(text)) {
-    return {
-      ok: false,
-      code: "NON_BUYER_ROLE",
-      reason: "Junior / non-decision-maker role.",
-    };
-  }
+  const excluded = listingExclusion(text);
+  if (excluded) return excluded;
   if (compiled.roles.test(text) || profile.targetRoles.length === 0) {
     return {
       ok: true,

@@ -23,7 +23,16 @@ export type ApifyRunClient = {
     waitForFinishSec?: number;
   }): Promise<ApifyRunInfo>;
   getDatasetItems(datasetId: string, limit: number): Promise<unknown[]>;
+  /** Present on the live client so a non-test run can be polled until it finishes. */
+  getRun?(runId: string): Promise<ApifyRunInfo>;
 };
+
+const FULL_RUN_POLL_MS = 150_000;
+const FULL_RUN_POLL_INTERVAL_MS = 4_000;
+
+function delay(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 export async function runActor(
   input: {
@@ -31,6 +40,8 @@ export async function runActor(
     runInput?: Record<string, unknown>;
     testMode?: boolean;
     itemLimit?: number;
+    /** How long to poll a still-running actor. Defaults to 150s for non-test runs when getRun exists. */
+    pollForMs?: number;
   },
   client: ApifyRunClient,
 ): Promise<ApifyActorRunResult> {
@@ -45,13 +56,31 @@ export async function runActor(
   }
 
   try {
-    const run = await client.startRun({
+    let run = await client.startRun({
       actorId,
       runInput: input.runInput ?? {},
       testMode: input.testMode,
       waitForFinishSec: input.testMode ? 55 : 0,
     });
-    const status = mapApifyStatus(run.status);
+    let status = mapApifyStatus(run.status);
+    const pollForMs = input.pollForMs ?? (input.testMode === false && client.getRun ? FULL_RUN_POLL_MS : 0);
+    if (status === "RUNNING" && pollForMs > 0 && client.getRun && run.id) {
+      const getRun = client.getRun;
+      const deadline = Date.now() + pollForMs;
+      while (status === "RUNNING" && Date.now() <= deadline) {
+        try {
+          const snap = await getRun(run.id);
+          run = snap;
+          status = mapApifyStatus(snap.status);
+        } catch {
+          break;
+        }
+        if (status !== "RUNNING") break;
+        const remaining = deadline - Date.now();
+        if (remaining <= 0) break;
+        await delay(Math.min(FULL_RUN_POLL_INTERVAL_MS, remaining));
+      }
+    }
     if (status === "FAILED" || status === "ABORTED" || status === "TIMED_OUT") {
       return {
         runId: run.id || null,
