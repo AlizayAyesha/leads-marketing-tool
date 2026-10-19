@@ -15,11 +15,13 @@ export function HomeConnections({
   chromeProfile,
   googleEmail,
   gmailSendReady,
+  socialAutomation = false,
 }: {
   chromeConnected: boolean;
   chromeProfile: string;
   googleEmail: string | null;
   gmailSendReady: boolean;
+  socialAutomation?: boolean;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -50,6 +52,7 @@ export function HomeConnections({
   }, [connectLinkedInChrome, gmailSendReady]);
 
   useEffect(() => {
+    if (!socialAutomation) return;
     if (autoLinkedInStarted.current) return;
     if (searchParams.get("connect") !== "linkedin") return;
     autoLinkedInStarted.current = true;
@@ -64,28 +67,36 @@ export function HomeConnections({
 
     connectLinkedInChrome();
     router.replace("/");
-  }, [connectLinkedInChrome, router, searchParams]);
+  }, [connectLinkedInChrome, router, searchParams, socialAutomation]);
 
-  const outreachReady = gmailSendReady && chromeConnected;
+  const outreachReady = socialAutomation ? gmailSendReady && chromeConnected : gmailSendReady;
 
   return (
     <section className="glass mb-8 rounded-2xl p-5">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="font-[family-name:var(--font-syne)] text-lg">Setup</h2>
-          <p className="text-sm text-muted">Google for email/sheets. Jarvis Chrome for LinkedIn and X.</p>
+          <p className="text-sm text-muted">
+            {socialAutomation ? "Google for email/sheets. Jarvis Chrome for LinkedIn and X." : "Google for email and sheets."}
+          </p>
         </div>
         <Badge tone={outreachReady ? "HOT" : "muted"}>{outreachReady ? "ready to send" : "needs setup"}</Badge>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <Button disabled={pending} onClick={connectOutreach}>
-          {pending ? "Connecting…" : outreachReady ? "Reconnect" : "Connect Google + Chrome"}
+        <Button disabled={pending} onClick={socialAutomation ? connectOutreach : () => { window.location.href = OUTREACH_OAUTH_URL; }}>
+          {pending
+            ? "Connecting…"
+            : outreachReady
+              ? "Reconnect"
+              : socialAutomation
+                ? "Connect Google + Chrome"
+                : "Connect Google"}
         </Button>
         <Button size="sm" variant="outline" asChild>
           <a href="/integrations">All connections</a>
         </Button>
-        {chromeConnected ? (
+        {socialAutomation && chromeConnected ? (
           <Button
             size="sm"
             variant="outline"
@@ -121,8 +132,12 @@ export function HomeConnections({
 
       <p className="mt-3 text-xs text-muted">
         Google: {googleEmail ? `${googleEmail}${gmailSendReady ? " · Gmail ok" : " · reconnect for Gmail"}` : "not connected"}
-        {" · "}
-        Chrome: {chromeConnected ? `${chromeProfile} — sign into LinkedIn and x.com there` : "not connected"}
+        {socialAutomation ? (
+          <>
+            {" · "}
+            Chrome: {chromeConnected ? `${chromeProfile} — sign into LinkedIn and x.com there` : "not connected"}
+          </>
+        ) : null}
       </p>
       {message ? <p className="mt-2 text-sm text-emerald-200">{message}</p> : null}
     </section>

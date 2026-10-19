@@ -15,9 +15,13 @@ export function buyerRoleRe() {
   return compiledProfile().roles;
 }
 
-/** Digital / marketing / web agencies — competitors, not customers. Real-estate/insurance agencies are not this. */
+/**
+ * Digital / marketing / web agencies — competitors, not customers.
+ * Includes Google Maps categories that name the service instead of the word "agency"
+ * (Internet marketing service, Website designer). Real-estate/insurance agencies are not this.
+ */
 export const COMPETITOR_AGENCY_RE =
-  /\b((digital|marketing|web|seo|sem|ppc|branding|creative|ad|advertising|social media|growth|content|pr|design) agency|web studio|creative studio|media agency|agency owner|agency holder)\b/i;
+  /\b((digital|marketing|web|seo|sem|ppc|branding|creative|ad|advertising|social media|growth|content|pr|design|internet marketing) agency|web studio|creative studio|media agency|agency owner|agency holder|internet marketing services?|digital marketing services?|advertising services?|website designers?|web designers?)\b/i;
 
 const HR_RE =
   /\b(recruiter|recruiting|talent acquisition|talent partner|hr\b|human resources|hiring manager|people ops|people operations)\b/i;

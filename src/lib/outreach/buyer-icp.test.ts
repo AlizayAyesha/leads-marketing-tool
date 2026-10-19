@@ -10,6 +10,12 @@ describe("classifyBuyerRole", () => {
     assert.equal(r.code, "BUYER");
   });
 
+  it("flags a company-only internet marketing service without a job title", () => {
+    const r = classifyBuyerRole(null, "Internet marketing service");
+    assert.equal(r.ok, false);
+    assert.equal(r.code, "AGENCY_HOLDER");
+  });
+
   it("flags a company-only digital marketing agency without a job title", () => {
     const r = classifyBuyerRole(null, "Boost Media Digital Marketing Agency");
     assert.equal(r.ok, false);

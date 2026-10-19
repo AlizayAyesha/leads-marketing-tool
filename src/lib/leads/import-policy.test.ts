@@ -63,6 +63,35 @@ describe("import policy", () => {
     assert.equal(decision.profile, null);
   });
 
+  it("removes Google Maps agency categories that do not say agency", () => {
+    for (const industry of [
+      "Internet marketing service",
+      "Marketing agency",
+      "Advertising agency",
+      "Website designer",
+    ]) {
+      const decision = decideImportLead({
+        company: "Northstar",
+        industry,
+        location: "Dubai",
+        website: "https://northstar.example",
+      });
+      assert.equal(decision.action, "skip-excluded", industry);
+      assert.equal(listingExclusion(industry)?.code, "AGENCY_HOLDER", industry);
+    }
+  });
+
+  it("keeps a real-estate agency", () => {
+    const decision = decideImportLead({
+      company: "Palm Homes",
+      industry: "Real estate agency",
+      location: "Dubai",
+      website: "https://palm.example",
+    });
+    assert.equal(decision.action, "store");
+    assert.equal(listingExclusion("Real estate agency"), null);
+  });
+
   it("removes a digital marketing agency from the category alone, with no job title", () => {
     const decision = decideImportLead({
       company: "Boost Media",

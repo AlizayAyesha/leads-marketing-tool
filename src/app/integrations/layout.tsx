@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { socialAutomationEnabled } from "@/lib/features";
 import { cn } from "@/lib/utils";
 
 const tabs = [
@@ -8,8 +9,8 @@ const tabs = [
   { href: "/integrations/scraping", label: "Elite Lead Engine" },
   { href: "/integrations/sheets", label: "Google Sheets" },
   { href: "/integrations/ai", label: "AI Providers" },
-  { href: "/integrations/browser", label: "Chrome" },
-  { href: "/integrations/linkedin", label: "LinkedIn Send" },
+  { href: "/integrations/browser", label: "Chrome", socialSend: true },
+  { href: "/integrations/linkedin", label: "LinkedIn Send", socialSend: true },
   { href: "/integrations/keys", label: "API Keys" },
 ];
 
@@ -27,9 +28,11 @@ export default function IntegrationsLayout({
 }
 
 function IntegrationsNav() {
+  const social = socialAutomationEnabled();
+  const visible = tabs.filter((tab) => social || !tab.socialSend);
   return (
     <div className="mb-8 flex flex-wrap gap-2">
-      {tabs.map((tab) => (
+      {visible.map((tab) => (
         <Link
           key={tab.href}
           href={tab.href}
