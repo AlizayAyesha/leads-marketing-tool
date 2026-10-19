@@ -2,7 +2,12 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { parseFirecrawlSearchPayload } from "./providers/firecrawl-parse";
-import { actorAllowedInFullScrape, shouldFallbackToConnectedScrapers, shouldRetryScrapeError } from "./pipeline-policy";
+import {
+  actorAllowedInFullScrape,
+  shouldFallbackToConnectedScrapers,
+  shouldRetryActorAttempt,
+  shouldRetryScrapeError,
+} from "./pipeline-policy";
 
 describe("full scrape pipeline policy", () => {
   it("runs Maps and keyword actors, skips LinkedIn, Fiverr, Instagram, and X", () => {
@@ -21,6 +26,15 @@ describe("full scrape pipeline policy", () => {
   it("retries network failures but not Apify quota", () => {
     assert.equal(shouldRetryScrapeError("fetch failed"), true);
     assert.equal(shouldRetryScrapeError("Monthly usage hard limit exceeded"), false);
+  });
+
+  it("does not retry a succeeded Actor run, even when Apify attached a status message", () => {
+    const finished = "Scraping finished. You can view all scraped places in the dataset.";
+    assert.equal(shouldRetryActorAttempt({ status: "SUCCEEDED", error: finished }), false);
+    assert.equal(shouldRetryActorAttempt({ status: "SUCCEEDED", error: null }), false);
+    assert.equal(shouldRetryActorAttempt({ status: "FAILED", error: "fetch failed" }), true);
+    assert.equal(shouldRetryActorAttempt({ status: "FAILED", error: "Monthly usage hard limit exceeded" }), false);
+    assert.equal(shouldRetryActorAttempt({ status: "RUNNING", error: null }), false);
   });
 
   it("falls back to connected scrapers when Apify quota hits or Maps return nothing", () => {

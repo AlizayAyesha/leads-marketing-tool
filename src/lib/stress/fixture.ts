@@ -1,5 +1,6 @@
 import type { RawLeadInput } from "@/types";
 import type { WebsiteSnapshot } from "@/types";
+import type { EvidenceClaim } from "@/lib/intelligence/evidence";
 import type { QualificationDecision } from "@/lib/intelligence/scoring";
 
 export type FixtureKind =
@@ -14,6 +15,8 @@ export type FixtureLead = {
   kind: FixtureKind;
   raw: RawLeadInput;
   snapshot?: WebsiteSnapshot | null;
+  roleTitle?: string | null;
+  evidence?: EvidenceClaim[];
   expectDecision: QualificationDecision | "DUPLICATE" | "EMPTY";
   expectOpportunityKey?: string;
   expectSolutionSlug?: string | null;
@@ -37,6 +40,19 @@ function okSnapshot(url: string, title: string, extras: Partial<WebsiteSnapshot>
     copyright: "© 2026 fixture",
     error: null,
     fetchedAt: NOW,
+  };
+}
+
+function fact(url: string, claim: string): EvidenceClaim {
+  return {
+    claim,
+    type: "FACT",
+    source: url,
+    sourceUrl: url,
+    snippet: claim,
+    timestamp: NOW,
+    observedAt: NOW,
+    confidence: "high",
   };
 }
 
@@ -70,15 +86,22 @@ export const STRESS_FIXTURE: FixtureLead[] = [
     expectOpportunityKey: "workflow_automation",
     expectSolutionSlug: "ai_automation",
     expectDraft: true,
+    roleTitle: "Founder",
+    evidence: [
+      fact(
+        "https://fixture.example.test/northwind-ops",
+        "Hiring operations for a new route. Invoices are still a manual spreadsheet process.",
+      ),
+    ],
     raw: {
       name: "Priya Shah",
       company: "Northwind Ops Fixture",
       website: "https://fixture.example.test/northwind-ops",
       email: "priya@northwind-ops.fixture",
       linkedinUrl: "https://linkedin.com/company/northwind-ops-fixture",
-      industry: "logistics software",
+      industry: "logistics",
       originalPost:
-        "We need workflow automation for invoices. Our team still copies every invoice into spreadsheets even though we already run a customer web app.",
+        "We need workflow automation for invoices. Our team still does a manual copy of every invoice into spreadsheets even though we already run a customer web app.",
       source: "fixture:stress",
       notes: "FIXTURE DATA. Do not treat as a real company.",
     },
@@ -95,14 +118,21 @@ export const STRESS_FIXTURE: FixtureLead[] = [
     expectOpportunityKey: "agentic_workflow",
     expectSolutionSlug: "agentic_workflows",
     expectDraft: true,
+    roleTitle: "Founder",
+    evidence: [
+      fact(
+        "https://fixture.example.test/harbor-support",
+        "Hiring operations during an expansion. Ticket routing is still manual.",
+      ),
+    ],
     raw: {
       name: "Marcus Hale",
       company: "Harbor Support Fixture",
       website: "https://fixture.example.test/harbor-support",
       email: "marcus@harbor-support.fixture",
-      industry: "customer support",
+      industry: "logistics",
       originalPost:
-        "Need an agentic workflow that routes support tickets across our existing tools. We are not looking for a chatbot.",
+        "Need an agentic workflow that routes support tickets across our existing tools. Routing is still manual. We are not looking for a chatbot.",
       source: "fixture:stress",
       notes: "FIXTURE DATA.",
     },
@@ -116,12 +146,19 @@ export const STRESS_FIXTURE: FixtureLead[] = [
     expectOpportunityKey: "custom_software",
     expectSolutionSlug: "custom_software",
     expectDraft: true,
+    roleTitle: "Owner",
+    evidence: [
+      fact(
+        "https://fixture.example.test/cedar-supply",
+        "Hiring operations before a new product line. Inventory entry is still manual.",
+      ),
+    ],
     raw: {
       name: "Elena Ruiz",
       company: "Cedar Supply Fixture",
       website: "https://fixture.example.test/cedar-supply",
       email: "elena@cedar-supply.fixture",
-      industry: "wholesale",
+      industry: "industrial",
       originalPost:
         "We need a custom internal tool to replace our spreadsheet ops for inventory. Current process is entirely manual data entry.",
       source: "fixture:stress",
@@ -137,15 +174,22 @@ export const STRESS_FIXTURE: FixtureLead[] = [
     expectOpportunityKey: "web_application",
     expectSolutionSlug: "web_applications",
     expectDraft: true,
+    roleTitle: "CEO",
+    evidence: [
+      fact(
+        "https://fixture.example.test/lumen",
+        "Hiring operations for a new branch. Customer onboarding is still manual.",
+      ),
+    ],
     raw: {
       name: "Jonah Adeyemi",
       company: "Lumen Onboarding Fixture",
       website: "https://fixture.example.test/lumen",
       email: "jonah@lumen-onboarding.fixture",
       linkedinUrl: "https://linkedin.com/company/lumen-onboarding-fixture",
-      industry: "fintech",
+      industry: "professional services",
       originalPost:
-        "Need a web application for customer onboarding. Current site is only a brochure and staff onboard clients by hand.",
+        "Need a web application for customer onboarding. Current site is only a brochure and staff onboard clients with a manual process.",
       source: "fixture:stress",
       notes: "FIXTURE DATA.",
     },

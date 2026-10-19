@@ -133,7 +133,7 @@ export const AGENT_CONTRACTS: AgentContract[] = [
   {
     slug: "fiverr_optimizer",
     can: ["propose one gig experiment", "store funnel notes"],
-    cannot: ["publish gig edits", "change a gig every day", "claim rankings"],
+    cannot: ["publish gig edits", "send messages", "submit gig changes", "approve its own experiment", "change a gig every day", "claim rankings"],
     allowedTools: [],
   },
   {

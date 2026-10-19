@@ -10,6 +10,17 @@ describe("classifyBuyerRole", () => {
     assert.equal(r.code, "BUYER");
   });
 
+  it("does not treat a real-estate developer as a tech peer", () => {
+    for (const company of ["Real estate developer", "Property developer"]) {
+      const fit = classifyBuyerRole(null, company);
+      assert.notEqual(fit.code, "PEER_BUILDER_OR_DESIGNER", company);
+      assert.notEqual(fit.code, "TECH_PEER_COMPANY", company);
+    }
+    const peer = classifyBuyerRole("Developer", "Acme Software");
+    assert.equal(peer.ok, false);
+    assert.equal(peer.code, "PEER_BUILDER_OR_DESIGNER");
+  });
+
   it("flags a company-only internet marketing service without a job title", () => {
     const r = classifyBuyerRole(null, "Internet marketing service");
     assert.equal(r.ok, false);

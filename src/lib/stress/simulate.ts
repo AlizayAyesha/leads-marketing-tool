@@ -58,6 +58,8 @@ export async function runFixtureSimulation(fixture: FixtureLead[] = STRESS_FIXTU
       raw: row.raw,
       snapshot: row.snapshot === undefined ? null : row.snapshot,
       duplicate,
+      roleTitle: row.roleTitle,
+      evidence: row.evidence,
     });
   });
 

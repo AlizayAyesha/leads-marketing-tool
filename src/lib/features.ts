@@ -22,3 +22,8 @@ export type HomeSendChannel = (typeof HOME_SEND_CHANNELS)[number];
 export function visibleHomeSendChannels(env: Record<string, string | undefined> = process.env): HomeSendChannel[] {
   return socialAutomationEnabled(env) ? [...HOME_SEND_CHANNELS] : ["email"];
 }
+
+/** Lead-file sections that send on LinkedIn. Hidden unless social automation is on. */
+export function leadSocialSendVisible(env: Record<string, string | undefined> = process.env) {
+  return socialAutomationEnabled(env);
+}

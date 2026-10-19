@@ -31,7 +31,16 @@ const DESIGNER_RE =
 
 /** Individual builders / tech practitioners — never pitch. */
 const PEER_BUILDER_RE =
-  /\b(software engineer|software developer|web developer|website developer|full[- ]?stack|frontend|front[- ]?end|backend|back[- ]?end|app developer|mobile developer|programmer|programming|coder|coding|devops|sre\b|ml engineer|machine learning engineer|data (engineer|scientist)|prompt engineer|llm engineer|ai engineer|ai developer|ai researcher|ai specialist|ai consultant|ai automation|automation (engineer|specialist|expert)|n8n|zapier|make\.com|chatbot (developer|engineer)|wordpress developer|shopify developer|next\.?js|react( native)?|node\.?js|python developer|javascript developer|typescript developer|golang|freelance (dev|developer|designer)|available for (hire|freelance)|\bdeveloper\b|\bengineer\b|\bcoder\b)\b/i;
+  /\b(software engineer|software developer|web developer|website developer|full[- ]?stack|frontend|front[- ]?end|backend|back[- ]?end|app developer|mobile developer|programmer|programming|coder|coding|devops|sre\b|ml engineer|machine learning engineer|data (engineer|scientist)|prompt engineer|llm engineer|ai engineer|ai developer|ai researcher|ai specialist|ai consultant|ai automation|automation (engineer|specialist|expert)|n8n|zapier|make\.com|chatbot (developer|engineer)|wordpress developer|shopify developer|next\.?js|react( native)?|node\.?js|python developer|javascript developer|typescript developer|golang|freelance (dev|developer|designer)|available for (hire|freelance)|\bengineer\b|\bcoder\b)\b/i;
+
+/** Bare "developer" is a tech peer only next to software, web, app, or AI context. */
+const TECH_DEVELOPER_CONTEXT_RE =
+  /\b(software|website|web|apps?|applications?|artificial intelligence|machine learning|\bai\b|frontend|front[- ]?end|backend|back[- ]?end|full[- ]?stack|mobile|javascript|python|react|node\.?js)\b/i;
+
+function isPeerBuilder(text: string) {
+  if (PEER_BUILDER_RE.test(text)) return true;
+  return /\bdevelopers?\b/i.test(text) && TECH_DEVELOPER_CONTEXT_RE.test(text);
+}
 
 /**
  * Software / AI / coding companies — even if the person is Founder/CEO.
@@ -109,7 +118,7 @@ export function listingExclusion(text: string): BuyerFit | null {
       reason: "HR / recruiter — excluded by your Business Profile.",
     };
   }
-  if (profile.excludeTechCompanies && (DESIGNER_RE.test(trimmed) || PEER_BUILDER_RE.test(trimmed))) {
+  if (profile.excludeTechCompanies && (DESIGNER_RE.test(trimmed) || isPeerBuilder(trimmed))) {
     return {
       ok: false,
       code: "PEER_BUILDER_OR_DESIGNER",
@@ -168,7 +177,7 @@ export function classifyBuyerRole(
 
 /** Combined non-buyer matcher for simple `.test` call sites. */
 export const NON_BUYER_ROLE_RE =
-  /(?:recruiter|recruiting|talent acquisition|talent partner|\bhr\b|human resources|hiring manager|people ops|graphic designer|visual designer|social media designer|ui designer|ux designer|product designer|motion designer|illustrator|brand designer|creative designer|\bdesigner\b|software|saas|\bai\b|artificial intelligence|machine learning|llm|coding|coder|programmer|programming|it (?:company|services|solutions)|tech (?:company|startup|agency)|web (?:agency|studio|development)|app (?:development|agency)|digital agency|agency owner|agency holder|fintech|blockchain|web3|full[- ]?stack|frontend|backend|devops|\bdeveloper\b|\bengineer\b|intern|student|trainee|junior|graduate|job[- ]?seeker|open to work)/i;
+  /(?:recruiter|recruiting|talent acquisition|talent partner|\bhr\b|human resources|hiring manager|people ops|graphic designer|visual designer|social media designer|ui designer|ux designer|product designer|motion designer|illustrator|brand designer|creative designer|\bdesigner\b|software|saas|\bai\b|artificial intelligence|machine learning|llm|coding|coder|programmer|programming|it (?:company|services|solutions)|tech (?:company|startup|agency)|web (?:agency|studio|development)|app (?:development|agency)|digital agency|agency owner|agency holder|fintech|blockchain|web3|full[- ]?stack|frontend|backend|devops|\bengineer\b|intern|student|trainee|junior|graduate|job[- ]?seeker|open to work)/i;
 
 export function isNonBuyerRole(roleOrHeadline?: string | null, company?: string | null) {
   return !classifyBuyerRole(roleOrHeadline, company).ok;
