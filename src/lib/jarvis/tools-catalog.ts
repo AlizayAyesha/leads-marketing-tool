@@ -1,0 +1,15 @@
+export const JARVIS_TOOL_NAMES = [
+  "get_execution_brief",
+  "get_analytics",
+  "execute_intent",
+  "get_lead",
+  "list_opportunities",
+  "get_draft",
+  "list_pending_drafts",
+  "request_send",
+  "run_scraper",
+  "get_scraper_job",
+  "cancel_scraper_job",
+  "search_scraped_data",
+  "get_scraped_evidence",
+] as const;

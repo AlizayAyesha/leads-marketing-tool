@@ -1,0 +1,1378 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum UserRole {
+  OPERATOR
+  ADMIN
+}
+
+enum LeadStatus {
+  NEW
+  RESEARCHED
+  QUALIFIED
+  READY_FOR_REVIEW
+  APPROVED
+  CONTACTED
+  REPLIED
+  INTERESTED
+  MEETING
+  PROPOSAL
+  WON
+  LOST
+  DO_NOT_CONTACT
+}
+
+enum LeadTemperature {
+  HOT
+  WARM
+  COLD
+  DISQUALIFIED
+}
+
+enum LeadSourceType {
+  GOOGLE_SHEETS
+  CSV
+  MANUAL
+  APIFY
+  WEBSITE
+  OTHER
+}
+
+enum OutreachChannel {
+  EMAIL
+  LINKEDIN
+  INSTAGRAM
+  FACEBOOK
+  X_TWITTER
+}
+
+enum DraftStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  EDITED
+  SENT
+  SUPERSEDED
+}
+
+enum AgentRuntimeStatus {
+  IDLE
+  RUNNING
+  ERROR
+  DISABLED
+}
+
+enum AgentRunStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+  TIMEOUT
+  CANCELLED
+}
+
+enum TaskStatus {
+  QUEUED
+  RUNNING
+  COMPLETED
+  FAILED
+  RETRYING
+  CANCELLED
+}
+
+enum CampaignStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  COMPLETED
+  ARCHIVED
+}
+
+enum JarvisMessageRole {
+  USER
+  ASSISTANT
+  TOOL
+}
+
+enum ZarService {
+  WEBSITE_DEVELOPMENT
+  FULL_STACK_DEVELOPMENT
+  SAAS_DEVELOPMENT
+  AI_INTEGRATION
+  AI_AUTOMATION
+  AI_CHATBOTS
+  CRM_ERP_DEVELOPMENT
+  SEO
+  UI_UX
+  BRANDING
+  CUSTOM_SOFTWARE
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  name      String?
+  role      UserRole @default(OPERATOR)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  outreachEvents OutreachEvent[]
+  agentRuns      AgentRun[]
+}
+
+model LeadSource {
+  id           String         @id @default(uuid())
+  type         LeadSourceType
+  name         String
+  config       Json           @default("{}")
+  lastSyncedAt DateTime?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  leads Lead[]
+
+  @@index([type])
+}
+
+model Lead {
+  id     String @id @default(uuid())
+  leadId String @unique
+
+  name              String?
+  company           String?
+  website           String?
+  email             String?
+  phone             String?
+  linkedinUrl       String?
+  instagramUrl      String?
+  facebookUrl       String?
+  twitterUrl        String?
+  source            String?
+  location          String?
+  industry          String?
+  originalPost      String?
+  notes             String?
+  sourceActor       String?
+  sourceUrl         String?
+  sourceRunId       String?
+  sourceDatasetId   String?
+  sourceRefs        Json    @default("[]")
+  rawPayload        Json?
+  normalizedPayload Json?
+
+  status         LeadStatus       @default(NEW)
+  temperature    LeadTemperature?
+  missingFields  Json             @default("[]")
+  websiteHost    String?
+  externalRowId  String?
+  duplicateOfId  String?
+  suppressed     Boolean          @default(false)
+  testRecipient  Boolean          @default(false)
+  environment    String           @default("PRODUCTION")
+  fixture        Boolean          @default(false)
+  lastActivityAt DateTime         @default(now())
+
+  sourceId  String?
+  sourceRel LeadSource? @relation(fields: [sourceId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  research            LeadResearch[]
+  scores              LeadScore[]
+  audits              LeadAudit[]
+  opportunities       Opportunity[]
+  drafts              OutreachDraft[]
+  events              OutreachEvent[]
+  sequences           OutreachSequence[]
+  replies             OutreachReply[]
+  conversations       Conversation[]
+  agentRuns           AgentRun[]
+  tasks               Task[]
+  campaignLeads       CampaignLead[]
+  signalSets          LeadSignalSet[]
+  traces              IntelligenceTrace[]
+  outcomes            LeadOutcome[]
+  linkedinResearch    LinkedInResearch[]
+  linkedinConnections LinkedInConnection[]
+  instagramResearch   InstagramResearch[]
+  evaluationExamples  EvaluationExample[]
+  duplicateOf         Lead?                @relation("LeadDuplicates", fields: [duplicateOfId], references: [id])
+  duplicates          Lead[]               @relation("LeadDuplicates")
+
+  @@index([status])
+  @@index([temperature])
+  @@index([email])
+  @@index([websiteHost])
+  @@index([linkedinUrl])
+  @@index([createdAt])
+  @@index([lastActivityAt])
+  @@index([sourceId])
+  @@index([externalRowId, sourceId])
+  @@index([testRecipient])
+  @@index([environment])
+  @@index([fixture])
+}
+
+model LeadResearch {
+  id     String @id @default(uuid())
+  leadId String
+  lead   Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  websiteQuality        Int?
+  websiteQualityNotes   String?
+  techSignals           Json     @default("[]")
+  problems              Json     @default("[]")
+  missingFeatures       Json     @default("[]")
+  webDevOpportunities   Json     @default("[]")
+  aiOpportunities       Json     @default("[]")
+  seoOpportunities      Json     @default("[]")
+  brandingOpportunities Json     @default("[]")
+  findings              Json     @default("[]")
+  limitations           Json     @default("[]")
+  rawSnapshot           Json?
+  mode                  String   @default("heuristic")
+  createdAt             DateTime @default(now())
+
+  @@index([leadId, createdAt])
+}
+
+model LeadScore {
+  id     String @id @default(uuid())
+  leadId String
+  lead   Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  score        Int
+  temperature  LeadTemperature
+  reason       String
+  breakdown    Json
+  evidenceUsed Json            @default("[]")
+  mode         String          @default("heuristic")
+  createdAt    DateTime        @default(now())
+
+  @@index([leadId, createdAt])
+  @@index([score])
+  @@index([temperature])
+}
+
+enum AuditVerdict {
+  PASS
+  HOLD
+  REJECT
+}
+
+model LeadAudit {
+  id     String @id @default(uuid())
+  leadId String
+  lead   Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  verdict            AuditVerdict
+  professionalStatus String
+  emailStatus        String
+  linkedinStatus     String
+  linkedinSeniority  String
+  instagramStatus    String
+  instagramPresence  String
+  serviceNeedStatus  String
+  allowedChannels    Json         @default("[]")
+  checks             Json
+  summary            String
+  blockers           Json         @default("[]")
+  unknowns           Json         @default("[]")
+  evidenceUsed       Json         @default("[]")
+  recommendedAction  String
+  mode               String       @default("heuristic")
+  score              Int?
+  promptVersion      Int?
+  modelProvider      String?
+  signalSetId        String?
+  signalIds          Json         @default("[]")
+  traceId            String?
+  createdAt          DateTime     @default(now())
+
+  @@index([leadId, createdAt])
+  @@index([verdict])
+}
+
+model Opportunity {
+  id     String @id @default(uuid())
+  leadId String
+  lead   Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  problem            String
+  evidence           String
+  evidenceUrl        String?
+  recommendedService ZarService
+  suggestedOffer     String
+  projectCategory    String
+  nextStep           String
+  confidence         String     @default("observed")
+  selection          String?
+  icpId              String?
+  mode               String     @default("heuristic")
+  score              Int?
+  signalVersion      Int        @default(1)
+  promptVersion      Int?
+  modelProvider      String?
+  signalSetId        String?
+  traceId            String?
+  evidenceItems      Json       @default("[]")
+  createdAt          DateTime   @default(now())
+
+  @@index([leadId, createdAt])
+  @@index([recommendedService])
+  @@index([selection])
+}
+
+model LeadSignalSet {
+  id     String @id @default(uuid())
+  leadId String
+  lead   Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  version   Int      @default(1)
+  traceId   String?
+  payload   Json
+  createdAt DateTime @default(now())
+
+  @@index([leadId, createdAt])
+  @@index([traceId])
+}
+
+model IntelligenceTrace {
+  id     String @id @default(uuid())
+  leadId String
+  lead   Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  signalSetId          String?
+  decisionId           String?
+  opportunityId        String?
+  linkedinResearchId   String?
+  instagramResearchId  String?
+  linkedinConnectionId String?
+  draftId              String?
+  outcomeId            String?
+  agentRunIds          Json      @default("[]")
+  closedAt             DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  @@index([leadId, createdAt])
+}
+
+model LinkedInResearch {
+  id     String @id @default(uuid())
+  leadId String
+  lead   Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  profileUrl         String?
+  normalizedUrl      String?
+  status             String
+  code               String
+  displayName        String?
+  headline           String?
+  currentCompany     String?
+  roleTitle          String?
+  location           String?
+  industry           String?
+  about              String?
+  companyAssociation String?
+  publicSignals      Json     @default("{}")
+  evidenceItems      Json     @default("[]")
+  source             String?
+  adapter            String
+  adapterVersion     String
+  retrievedAt        DateTime
+  errorMessage       String?
+  traceId            String?
+  rawSnapshot        Json?
+  createdAt          DateTime @default(now())
+
+  @@index([leadId, createdAt])
+  @@index([normalizedUrl, retrievedAt])
+  @@index([traceId])
+}
+
+model InstagramResearch {
+  id     String @id @default(uuid())
+  leadId String
+  lead   Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  profileUrl           String?
+  normalizedUrl        String?
+  username             String?
+  status               String
+  code                 String
+  displayName          String?
+  bio                  String?
+  professionalCategory String?
+  publicBusinessInfo   String?
+  website              String?
+  businessContact      String?
+  publicSignals        Json     @default("{}")
+  evidenceItems        Json     @default("[]")
+  source               String?
+  adapter              String
+  adapterVersion       String
+  retrievedAt          DateTime
+  errorMessage         String?
+  traceId              String?
+  rawSnapshot          Json?
+  createdAt            DateTime @default(now())
+
+  @@index([leadId, createdAt])
+  @@index([normalizedUrl, retrievedAt])
+  @@index([traceId])
+}
+
+enum LinkedInConnectionStatus {
+  NOT_REQUESTED
+  RECOMMENDED
+  REQUEST_APPROVED
+  REQUESTED
+  CONNECTED
+  DECLINED
+  UNKNOWN
+}
+
+model LinkedInConnection {
+  id     String @id @default(uuid())
+  leadId String @unique
+  lead   Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  status                LinkedInConnectionStatus @default(NOT_REQUESTED)
+  profileUrl            String?
+  normalizedUrl         String?
+  recommendedAt         DateTime?
+  requestApprovedAt     DateTime?
+  requestApprovedBy     String?
+  connectionRequestedAt DateTime?
+  connectedAt           DateTime?
+  declinedAt            DateTime?
+  lastCheckedAt         DateTime?
+  nextEligibleMessageAt DateTime?
+  waitDays              Int                      @default(2)
+  statusSource          String                   @default("none")
+  statusCode            String?
+  lastCheckResult       String?
+  recommendationDraftId String?
+  messageDraftId        String?
+  decisionId            String?
+  traceId               String?
+  stoppedAt             DateTime?
+  stopReason            String?
+  createdAt             DateTime                 @default(now())
+  updatedAt             DateTime                 @updatedAt
+
+  @@index([status, nextEligibleMessageAt])
+  @@index([traceId])
+}
+
+model LeadOutcome {
+  id     String @id @default(uuid())
+  leadId String
+  lead   Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  traceId         String?
+  draftId         String?
+  decisionId      String?
+  opportunityId   String?
+  channel         OutreachChannel?
+  sent            Boolean          @default(false)
+  delivered       Boolean?
+  replied         Boolean          @default(false)
+  interested      Boolean          @default(false)
+  meeting         Boolean          @default(false)
+  pricing         Boolean          @default(false)
+  notInterested   Boolean          @default(false)
+  wrongPerson     Boolean          @default(false)
+  unsubscribe     Boolean          @default(false)
+  bounced         Boolean          @default(false)
+  noResponse      Boolean          @default(false)
+  sequenceStopped Boolean          @default(false)
+  status          String           @default("none")
+  replyIntent     String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@index([leadId, createdAt])
+  @@index([status])
+  @@index([traceId])
+}
+
+model EvaluationExample {
+  id     String @id @default(uuid())
+  leadId String
+  lead   Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  kind      String
+  traceId   String?
+  features  Json     @default("{}")
+  outcome   Json     @default("{}")
+  createdAt DateTime @default(now())
+
+  @@index([kind, createdAt])
+  @@index([leadId])
+}
+
+model OutreachDraft {
+  id     String @id @default(uuid())
+  leadId String
+  lead   Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  channel             OutreachChannel
+  subject             String?
+  message             String
+  tone                String?
+  status              DraftStatus     @default(PENDING_APPROVAL)
+  reasonForContacting String?
+  whatNotToSay        Json            @default("[]")
+  followUpStrategy    String?
+  firstMessageGoal    String?
+  evidenceRefs        Json            @default("[]")
+  rejectionReason     String?
+  approvedAt          DateTime?
+  approvedBy          String?
+  editedAt            DateTime?
+  campaignId          String?
+  campaign            Campaign?       @relation(fields: [campaignId], references: [id])
+  stepKind            String?
+  gmailMessageId      String?
+  mode                String          @default("heuristic")
+  decisionId          String?
+  promptVersion       Int?
+  modelProvider       String?
+  traceId             String?
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+
+  events       OutreachEvent[]
+  sequenceStep OutreachSequenceStep?
+
+  @@index([leadId, createdAt])
+  @@index([status])
+  @@index([channel])
+  @@index([campaignId])
+}
+
+model OutreachEvent {
+  id     String @id @default(uuid())
+  leadId String
+  lead   Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  draftId String?
+  draft   OutreachDraft? @relation(fields: [draftId], references: [id])
+
+  type      String
+  channel   OutreachChannel?
+  payload   Json             @default("{}")
+  actorId   String?
+  actor     User?            @relation(fields: [actorId], references: [id])
+  createdAt DateTime         @default(now())
+
+  @@index([leadId, createdAt])
+  @@index([type])
+}
+
+enum SequenceStatus {
+  ACTIVE
+  PAUSED
+  STOPPED
+  COMPLETED
+}
+
+enum SequenceStepStatus {
+  PENDING
+  DRAFTED
+  AWAITING_APPROVAL
+  SENT
+  SKIPPED
+  STOPPED
+}
+
+model OutreachSequence {
+  id     String @id @default(uuid())
+  leadId String
+  lead   Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  channel     OutreachChannel
+  status      SequenceStatus  @default(ACTIVE)
+  stopReason  String?
+  currentStep Int             @default(0)
+  nextRunAt   DateTime?
+  lastSentAt  DateTime?
+  enrolledAt  DateTime        @default(now())
+  stoppedAt   DateTime?
+
+  steps OutreachSequenceStep[]
+
+  @@unique([leadId, channel])
+  @@index([status, nextRunAt])
+  @@index([leadId])
+}
+
+model OutreachSequenceStep {
+  id         String           @id @default(uuid())
+  sequenceId String
+  sequence   OutreachSequence @relation(fields: [sequenceId], references: [id], onDelete: Cascade)
+
+  stepIndex  Int
+  kind       String
+  dueAt      DateTime
+  status     SequenceStepStatus @default(PENDING)
+  draftId    String?            @unique
+  draft      OutreachDraft?     @relation(fields: [draftId], references: [id])
+  sentAt     DateTime?
+  skipReason String?
+
+  @@index([sequenceId, stepIndex])
+  @@index([dueAt, status])
+}
+
+model OutreachReply {
+  id     String @id @default(uuid())
+  leadId String
+  lead   Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  channel   OutreachChannel
+  intent    String
+  rawText   String
+  summary   String?
+  escalated Boolean         @default(false)
+  draftId   String?
+  createdAt DateTime        @default(now())
+
+  @@index([leadId, createdAt])
+  @@index([intent])
+}
+
+enum ConversationStage {
+  NONE
+  CONNECTED
+  GETTING_TO_KNOW
+  DISCOVERY
+  PROBLEM_IDENTIFIED
+  SOLUTION_RELEVANT
+  SOLUTION_MATCH
+  SOFT_PITCH
+  PITCH
+  INTEREST
+  MEETING
+  MEETING_PROPOSED
+  LINK_SENT
+  BOOKING_STARTED
+  BOOKED
+  MEETING_BOOKED
+  COMPLETED
+  STOPPED
+}
+
+enum ConversationHeat {
+  COLD
+  ENGAGED
+  PROBLEM
+  QUALIFIED
+  HOT
+  MEETING
+}
+
+enum MeetingSource {
+  UNKNOWN
+  LINKEDIN
+  EMAIL
+  INSTAGRAM
+  WEBSITE
+  OTHER
+}
+
+model Conversation {
+  id     String @id @default(uuid())
+  leadId String
+  lead   Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  channel         OutreachChannel
+  stage           ConversationStage @default(NONE)
+  heat            ConversationHeat  @default(COLD)
+  intentScore     Int               @default(0)
+  summary         String?
+  signal          String?
+  problem         String?
+  pitchAllowed    Boolean           @default(false)
+  analysis        Json              @default("{}")
+  whyNow          Json              @default("{}")
+  messages        Json              @default("[]")
+  meetingStage    String?
+  meetingSource   MeetingSource     @default(UNKNOWN)
+  meetingEntryUrl String?
+  linkSentAt      DateTime?
+  ctaClickedAt    DateTime?
+  bookedAt        DateTime?
+  nextFollowUpAt  DateTime?
+  stoppedAt       DateTime?
+  stopReason      String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  @@index([leadId, channel])
+  @@index([stage])
+  @@index([heat])
+  @@index([intentScore])
+  @@index([meetingSource])
+  @@index([nextFollowUpAt])
+}
+
+model Campaign {
+  id                 String           @id @default(uuid())
+  name               String
+  description        String?
+  channel            OutreachChannel?
+  status             CampaignStatus   @default(DRAFT)
+  filters            Json             @default("{}")
+  runAiAfterScrape   Boolean          @default(false)
+  sheetSpreadsheetId String?
+  sheetWorksheet     String?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  leads  CampaignLead[]
+  drafts OutreachDraft[]
+  actors CampaignActor[]
+  runs   CampaignRun[]
+
+  @@index([status])
+}
+
+model CampaignLead {
+  id         String   @id @default(uuid())
+  campaignId String
+  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  leadId     String
+  lead       Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@unique([campaignId, leadId])
+  @@index([leadId])
+}
+
+model Agent {
+  id          String             @id @default(uuid())
+  slug        String             @unique
+  name        String
+  description String
+  status      AgentRuntimeStatus @default(IDLE)
+  currentTask String?
+  lastRunAt   DateTime?
+  lastError   String?
+  tasksDone   Int                @default(0)
+  errorCount  Int                @default(0)
+  enabled     Boolean            @default(true)
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  runs   AgentRun[]
+  tasks  Task[]
+  prompt Prompt?
+
+  @@index([status])
+}
+
+model Prompt {
+  id        String   @id @default(uuid())
+  agentSlug String   @unique
+  agent     Agent    @relation(fields: [agentSlug], references: [slug])
+  name      String
+  content   String
+  version   Int      @default(1)
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+}
+
+model AgentRun {
+  id      String  @id @default(uuid())
+  agentId String
+  agent   Agent   @relation(fields: [agentId], references: [id])
+  leadId  String?
+  lead    Lead?   @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  userId  String?
+  user    User?   @relation(fields: [userId], references: [id])
+  taskId  String? @unique
+
+  input         Json
+  output        Json?
+  status        AgentRunStatus @default(PENDING)
+  error         String?
+  startedAt     DateTime?
+  endedAt       DateTime?
+  promptVersion Int?
+  modelProvider String?
+  traceId       String?
+  createdAt     DateTime       @default(now())
+
+  task Task?
+
+  @@index([agentId, createdAt])
+  @@index([leadId])
+  @@index([status])
+}
+
+model Task {
+  id      String @id @default(uuid())
+  type    String
+  payload Json   @default("{}")
+
+  status     TaskStatus @default(QUEUED)
+  attempts   Int        @default(0)
+  maxRetries Int        @default(2)
+  timeoutMs  Int        @default(90000)
+  error      String?
+  result     Json?
+
+  leadId  String?
+  lead    Lead?     @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  agentId String?
+  agent   Agent?    @relation(fields: [agentId], references: [id])
+  runId   String?   @unique
+  run     AgentRun? @relation(fields: [runId], references: [id])
+
+  availableAt DateTime  @default(now())
+  startedAt   DateTime?
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([status, availableAt])
+  @@index([type])
+  @@index([leadId])
+  @@index([createdAt])
+}
+
+model Setting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+}
+
+model Suppression {
+  id        String   @id @default(uuid())
+  email     String?  @unique
+  domain    String?
+  phone     String?
+  reason    String?
+  createdAt DateTime @default(now())
+
+  @@index([domain])
+  @@index([phone])
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  action    String
+  entity    String
+  entityId  String?
+  actor     String?
+  payload   Json     @default("{}")
+  createdAt DateTime @default(now())
+
+  @@index([entity, entityId])
+  @@index([createdAt])
+  @@index([action])
+}
+
+enum IntegrationKind {
+  APIFY
+  GOOGLE_SHEETS
+  OPENAI
+  BROWSER_AGENT
+  OTHER
+}
+
+enum IntegrationHealth {
+  DISCONNECTED
+  CONNECTED
+  ERROR
+}
+
+enum ScraperRunStatus {
+  QUEUED
+  STARTING
+  RUNNING
+  SUCCEEDED
+  FAILED
+  ABORTED
+  TIMED_OUT
+}
+
+enum ScrapingJobStatus {
+  QUEUED
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+model ScraperDefinition {
+  id           String    @id @default(uuid())
+  slug         String    @unique
+  name         String
+  provider     String
+  source       String
+  capabilities Json      @default("[]")
+  inputSchema  Json      @default("{}")
+  outputSchema Json      @default("{}")
+  enabled      Boolean   @default(true)
+  rateLimits   Json      @default("{}")
+  status       String    @default("READY")
+  lastRunAt    DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  jobs ScrapingJob[]
+
+  @@index([provider, enabled])
+  @@index([source])
+}
+
+model ScrapingJob {
+  id              String            @id @default(uuid())
+  scraperId       String
+  scraper         ScraperDefinition @relation(fields: [scraperId], references: [id])
+  provider        String
+  operation       String
+  input           Json
+  status          ScrapingJobStatus @default(QUEUED)
+  startedAt       DateTime?
+  completedAt     DateTime?
+  recordsFound    Int               @default(0)
+  recordsStored   Int               @default(0)
+  error           String?
+  retryCount      Int               @default(0)
+  createdBy       String?
+  cancelRequested Boolean           @default(false)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  evidence ScrapedEvidence[]
+
+  @@index([status, createdAt])
+  @@index([scraperId, createdAt])
+}
+
+model ScrapedEvidence {
+  id                   String      @id @default(uuid())
+  jobId                String
+  job                  ScrapingJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  sourceUrl            String
+  sourceType           String
+  retrievedAt          DateTime    @default(now())
+  rawEvidence          Json
+  normalizedFields     Json        @default("{}")
+  extractionConfidence Float       @default(0.5)
+  scraper              String
+  provider             String
+  fingerprint          String
+  createdAt            DateTime    @default(now())
+
+  @@unique([fingerprint])
+  @@index([sourceUrl])
+  @@index([fingerprint])
+  @@index([provider, createdAt])
+}
+
+model Integration {
+  id            String            @id @default(uuid())
+  kind          IntegrationKind   @unique
+  name          String
+  health        IntegrationHealth @default(DISCONNECTED)
+  publicConfig  Json              @default("{}")
+  lastCheckedAt DateTime?
+  lastError     String?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+}
+
+model ApifyActor {
+  id             String    @id @default(uuid())
+  actorId        String    @unique
+  displayName    String
+  description    String?
+  platform       String?
+  category       String?
+  sourceType     String?
+  inputSchema    Json      @default("{}")
+  inputValues    Json      @default("{}")
+  outputMapping  Json      @default("{}")
+  manualFields   Json      @default("[]")
+  active         Boolean   @default(true)
+  lastRunAt      DateTime?
+  lastSuccessAt  DateTime?
+  totalRuns      Int       @default(0)
+  leadsGenerated Int       @default(0)
+  errorCount     Int       @default(0)
+  avgDurationMs  Int?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  runs      ActorRun[]
+  campaigns CampaignActor[]
+
+  @@index([active])
+  @@index([platform])
+}
+
+model CampaignActor {
+  id            String     @id @default(uuid())
+  campaignId    String
+  campaign      Campaign   @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  apifyActorId  String
+  actor         ApifyActor @relation(fields: [apifyActorId], references: [id], onDelete: Cascade)
+  inputOverride Json       @default("{}")
+  enabled       Boolean    @default(true)
+  createdAt     DateTime   @default(now())
+
+  @@unique([campaignId, apifyActorId])
+  @@index([apifyActorId])
+}
+
+model CampaignRun {
+  id                String    @id @default(uuid())
+  campaignId        String
+  campaign          Campaign  @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  status            String
+  testMode          Boolean   @default(false)
+  leadsCollected    Int       @default(0)
+  duplicatesRemoved Int       @default(0)
+  newLeads          Int       @default(0)
+  errorCount        Int       @default(0)
+  startedAt         DateTime?
+  completedAt       DateTime?
+  createdAt         DateTime  @default(now())
+
+  actorRuns ActorRun[]
+
+  @@index([campaignId, createdAt])
+  @@index([status])
+}
+
+model ActorRun {
+  id            String           @id @default(uuid())
+  apifyActorId  String
+  actor         ApifyActor       @relation(fields: [apifyActorId], references: [id], onDelete: Cascade)
+  campaignRunId String?
+  campaignRun   CampaignRun?     @relation(fields: [campaignRunId], references: [id], onDelete: SetNull)
+  provider      String           @default("apify")
+  externalRunId String?
+  datasetId     String?
+  status        ScraperRunStatus @default(QUEUED)
+  testMode      Boolean          @default(false)
+  input         Json             @default("{}")
+  resultCount   Int              @default(0)
+  ingestedNew   Int              @default(0)
+  errorCount    Int              @default(0)
+  error         String?
+  startedAt     DateTime?
+  completedAt   DateTime?
+  durationMs    Int?
+  createdAt     DateTime         @default(now())
+
+  @@index([apifyActorId, createdAt])
+  @@index([campaignRunId])
+  @@index([status])
+  @@index([externalRunId])
+}
+
+enum OpportunitySource {
+  UPWORK
+  FIVERR
+  LINKEDIN
+  GOOGLE
+  REDDIT
+  WEBSITE
+  EMAIL
+  OTHER
+}
+
+enum OpportunityStatus {
+  NEW
+  RESEARCHED
+  QUALIFIED
+  SKIPPED
+  DRAFTING
+  AWAITING_APPROVAL
+  APPROVED
+  SUBMITTED
+  REPLIED
+  WON
+  LOST
+}
+
+enum FitClassification {
+  EXCELLENT
+  GOOD
+  MARGINAL
+  SKIP
+}
+
+enum ProposalKind {
+  UPWORK_PROPOSAL
+  FIVERR_RESPONSE
+}
+
+enum ProposalLifecycle {
+  DRAFT
+  AWAITING_APPROVAL
+  APPROVED
+  REJECTED
+  SUBMITTED
+  REPLIED
+  WON
+  LOST
+}
+
+model FreelanceOpportunity {
+  id                  String             @id @default(uuid())
+  platform            OpportunitySource
+  externalId          String?
+  title               String
+  description         String?
+  url                 String?
+  clientName          String?
+  budget              String?
+  budgetType          String?
+  budgetAmount        Float?
+  skills              Json               @default("[]")
+  postedAt            DateTime?
+  location            String?
+  source              String?
+  fitScore            Int?
+  classification      FitClassification?
+  status              OpportunityStatus  @default(NEW)
+  research            Json?
+  recommendedService  ZarService?
+  recommendedStrategy String?
+  qualifyReasons      Json               @default("[]")
+  risks               Json               @default("[]")
+  recommendedAction   String?
+  rawPayload          Json?
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+
+  proposals FreelanceProposal[]
+  inquiries BuyerInquiry[]
+
+  @@index([platform, status])
+  @@index([fitScore])
+  @@index([createdAt])
+  @@index([externalId])
+}
+
+model FreelanceProposal {
+  id              String                @id @default(uuid())
+  opportunityId   String?
+  opportunity     FreelanceOpportunity? @relation(fields: [opportunityId], references: [id], onDelete: SetNull)
+  inquiryId       String?
+  inquiry         BuyerInquiry?         @relation(fields: [inquiryId], references: [id], onDelete: SetNull)
+  kind            ProposalKind
+  subject         String?
+  body            String
+  status          ProposalLifecycle     @default(AWAITING_APPROVAL)
+  rejectionReason String?
+  approvedAt      DateTime?
+  submittedAt     DateTime?
+  mode            String                @default("heuristic")
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  @@index([status])
+  @@index([kind])
+  @@index([opportunityId])
+}
+
+model GigProfile {
+  id          String            @id @default(uuid())
+  platform    OpportunitySource @default(FIVERR)
+  title       String
+  description String?
+  keywords    Json              @default("[]")
+  packages    Json              @default("[]")
+  faqs        Json              @default("[]")
+  analysis    Json?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+}
+
+model BuyerInquiry {
+  id            String                @id @default(uuid())
+  platform      OpportunitySource     @default(FIVERR)
+  opportunityId String?
+  opportunity   FreelanceOpportunity? @relation(fields: [opportunityId], references: [id], onDelete: SetNull)
+  gigId         String?
+  buyerName     String?
+  message       String
+  status        OpportunityStatus     @default(NEW)
+  createdAt     DateTime              @default(now())
+
+  proposals FreelanceProposal[]
+
+  @@index([platform, status])
+}
+
+model JarvisMemory {
+  id        String   @id @default(uuid())
+  platform  String?
+  kind      String
+  subject   String
+  content   String
+  metadata  Json     @default("{}")
+  createdAt DateTime @default(now())
+
+  @@index([platform, kind])
+  @@index([createdAt])
+}
+
+/// Operator chat with Jarvis. Not lead Conversation. Not JarvisMemory (work lessons).
+model JarvisThread {
+  id               String          @id @default(uuid())
+  title            String?
+  lastLeadId       String?
+  lastLeadRecordId String?
+  lastCompany      String?
+  lastDraftId      String?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  messages         JarvisMessage[]
+
+  @@index([updatedAt])
+}
+
+model JarvisMessage {
+  id         String            @id @default(uuid())
+  threadId   String
+  thread     JarvisThread      @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  role       JarvisMessageRole
+  content    String
+  toolName   String?
+  toolInput  Json?
+  toolOutput Json?
+  createdAt  DateTime          @default(now())
+
+  @@index([threadId, createdAt])
+}
+
+model PlatformConnection {
+  id             String    @id @default(uuid())
+  platform       String    @unique
+  status         String    @default("DISCONNECTED")
+  connectedAt    DateTime?
+  lastVerifiedAt DateTime?
+  metadata       Json      @default("{}")
+  lastError      String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+}
+
+model BrainEvent {
+  id        String   @id @default(uuid())
+  type      String
+  payload   Json     @default("{}")
+  createdAt DateTime @default(now())
+
+  @@index([type, createdAt])
+}
+
+model GoogleConnection {
+  id           String    @id @default(uuid())
+  googleEmail  String?
+  accessToken  String?
+  refreshToken String?
+  tokenExpiry  DateTime?
+  scopes       String[]  @default([])
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
+
+model AiCredential {
+  id            String         @id @default(uuid())
+  name          String
+  provider      String         @default("OPENAI")
+  keyCiphertext String
+  keyIv         String
+  keyTag        String
+  keyHint       String
+  enabled       Boolean        @default(true)
+  status        String         @default("HEALTHY")
+  lastTestedAt  DateTime?
+  lastUsedAt    DateTime?
+  lastErrorAt   DateTime?
+  errorCount    Int            @default(0)
+  successCount  Int            @default(0)
+  cooldownUntil DateTime?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  usage         AiUsageEvent[]
+
+  @@index([enabled, status])
+  @@index([provider])
+}
+
+model AiUsageEvent {
+  id            String        @id @default(uuid())
+  credentialId  String?
+  credential    AiCredential? @relation(fields: [credentialId], references: [id], onDelete: SetNull)
+  credentialRef String
+  model         String?
+  operation     String
+  success       Boolean
+  errorCategory String?
+  latencyMs     Int?
+  inputTokens   Int?
+  outputTokens  Int?
+  totalTokens   Int?
+  createdAt     DateTime      @default(now())
+
+  @@index([credentialRef, createdAt])
+  @@index([createdAt])
+}
+
+/// Business Profile: who you are and who you target. Single row (id = "default").
+/// Edited in Settings → Business Profile. Drives discovery, qualification, scoring and drafts.
+model BusinessProfile {
+  id        String   @id @default("default")
+  data      Json
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+}
+
+/// A connected Gmail sender inbox (team/business inbox). OAuth tokens are AES-256-GCM encrypted.
+/// Approved drafts are assigned round-robin across enabled accounts, each capped by dailySendLimit.
+model GmailSenderAccount {
+  id                String            @id @default(uuid())
+  email             String            @unique
+  displayName       String?
+  refreshTokenEnc   String?
+  accessTokenEnc    String?
+  tokenExpiry       DateTime?
+  scopes            String[]          @default([])
+  dailySendLimit    Int               @default(1)
+  enabled           Boolean           @default(true)
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  sends             GmailSenderSend[]
+}
+
+model GmailSenderSend {
+  id        String             @id @default(uuid())
+  accountId String
+  account   GmailSenderAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  draftId   String?
+  messageId String?
+  sentAt    DateTime           @default(now())
+
+  @@index([accountId, sentAt])
+}

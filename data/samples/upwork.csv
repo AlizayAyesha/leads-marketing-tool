@@ -1,0 +1,2 @@
+external_id,title,description,url,client_name,budget,budget_type,skills,posted_at,location,notes
+,SaaS dashboard rebuild,Need a cleaner admin dashboard for an existing Next.js product.,,Example Client,$2000,fixed,"Next.js, TypeScript",,,Paste real listing text only

@@ -1,0 +1,21 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: leads-marketing-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: leads
+      POSTGRES_PASSWORD: leads
+      POSTGRES_DB: leads_marketing
+    ports:
+      - "5432:5432"
+    volumes:
+      - leads_marketing_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U leads -d leads_marketing"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  leads_marketing_pg:

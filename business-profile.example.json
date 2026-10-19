@@ -1,0 +1,19 @@
+{
+  "businessName": "Acme Web Studio",
+  "description": "We build fast websites and online booking for independent dental clinics.",
+  "website": "https://acme.example",
+  "services": ["website redesign", "online booking", "local SEO"],
+  "targetIndustries": ["dental clinic", "dentist", "orthodontist"],
+  "targetLocations": ["Berlin", "Munich"],
+  "companySize": "1-50 employees",
+  "targetRoles": ["owner", "practice manager", "founder"],
+  "includeKeywords": ["outdated website", "no online booking", "new patients"],
+  "excludeKeywords": ["hospital", "university"],
+  "competitors": ["Example Dental Marketing"],
+  "excludeAgencies": true,
+  "excludeTechCompanies": true,
+  "excludeRecruiters": true,
+  "excludeJuniorRoles": true,
+  "requireDemandSignal": true,
+  "bookingUrl": ""
+}

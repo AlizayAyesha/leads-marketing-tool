@@ -1,0 +1,66 @@
+@import "tailwindcss";
+
+:root {
+  --background: #050807;
+  --foreground: #e7f6ee;
+  --muted: #8aa396;
+  --emerald: #10b981;
+  --emerald-bright: #34d399;
+  --emerald-dim: #064e3b;
+  --surface: rgba(12, 20, 17, 0.78);
+  --surface-solid: #0c1411;
+  --line: rgba(16, 185, 129, 0.14);
+  --danger: #fb7185;
+  --warn: #fbbf24;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-emerald: var(--emerald);
+  --color-line: var(--line);
+  --font-sans: var(--font-outfit);
+  --font-display: var(--font-syne);
+  --font-mono: var(--font-geist-mono);
+}
+
+* {
+  border-color: var(--line);
+}
+
+html,
+body {
+  background: var(--background);
+  color: var(--foreground);
+  min-height: 100%;
+}
+
+body {
+  font-family: var(--font-outfit), ui-sans-serif, system-ui, sans-serif;
+  background-image:
+    radial-gradient(1200px 600px at 10% -10%, rgba(16, 185, 129, 0.16), transparent 50%),
+    radial-gradient(900px 500px at 100% 0%, rgba(6, 78, 59, 0.35), transparent 45%),
+    linear-gradient(180deg, #050807 0%, #070b09 100%);
+}
+
+.glass {
+  background: var(--surface);
+  backdrop-filter: blur(22px);
+  border: 1px solid var(--line);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.02) inset;
+}
+
+.glow-text {
+  text-shadow: 0 0 24px rgba(16, 185, 129, 0.35);
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(16, 185, 129, 0.25);
+  border-radius: 999px;
+}
