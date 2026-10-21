@@ -1,11 +1,15 @@
 # Leads Marketing Tool
 
+[![License](https://img.shields.io/github/license/AlizayAyesha/leads-marketing-tool)](LICENSE) [![GitHub stars](https://img.shields.io/github/stars/AlizayAyesha/leads-marketing-tool?style=social)](https://github.com/AlizayAyesha/leads-marketing-tool/stargazers) [![Last commit](https://img.shields.io/github/last-commit/AlizayAyesha/leads-marketing-tool)](https://github.com/AlizayAyesha/leads-marketing-tool/commits/main) [![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/AlizayAyesha/leads-marketing-tool/pulls) ![Next.js](https://img.shields.io/badge/Next.js-16-black) ![TypeScript](https://img.shields.io/badge/TypeScript-blue)
+
 **Open-source lead discovery, qualification and outreach for any business, anywhere.**
 Describe your business and ideal customer once. The tool finds matching businesses, researches their public websites, keeps only real buyers, writes personalised drafts, and queues them for your approval before anything is sent.
 
 > Built by **Zar Labs** ([zarlabs.online](https://zarlabs.online)) · License: **AGPL-3.0**
 
 https://github.com/user-attachments/assets/6012feda-24ea-44e8-84b8-692a1ad41649
+
+If this is useful, a ⭐ helps others find it.
 
 Stack: Next.js 16 · TypeScript · Prisma + PostgreSQL · Apify · OpenRouter / OpenAI · Playwright (optional)
 
@@ -41,7 +45,7 @@ No AI key? Everything still works in **heuristic mode** (rule-based scoring and 
 Requirements: **Node.js 20+**, **Docker** (for Postgres) or any PostgreSQL 14+.
 
 ```bash
-git clone https://github.com/<you>/leads-marketing-tool.git
+git clone https://github.com/AlizayAyesha/leads-marketing-tool.git
 cd leads-marketing-tool
 
 cp .env.example .env.local      # then edit keys (see below)
