@@ -69,6 +69,9 @@ export default async function LeadDetailPage({
                 Decision maker
               </Button>
             </form>
+            <Button asChild variant="outline">
+              <Link href={`/content?lead=${lead.id}`}>Content draft</Link>
+            </Button>
             <form action={markDoNotContact.bind(null, lead.id)}>
               <Button type="submit" variant="danger">
                 Do not contact

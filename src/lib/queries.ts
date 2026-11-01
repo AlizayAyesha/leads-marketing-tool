@@ -84,6 +84,17 @@ export async function getLeadFile(id: string) {
   });
 }
 
+export async function getContentApprovalQueue() {
+  return prisma.contentDraft.findMany({
+    where: { status: { in: ["PENDING_APPROVAL", "EDITED", "APPROVED"] } },
+    include: {
+      lead: { select: { id: true, name: true, company: true, leadId: true } },
+    },
+    orderBy: { createdAt: "desc" },
+    take: 50,
+  });
+}
+
 export async function getApprovalQueue() {
   return prisma.outreachDraft.findMany({
     where: {

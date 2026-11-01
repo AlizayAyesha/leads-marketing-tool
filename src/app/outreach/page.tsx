@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { getApprovalQueue, getOutreachBoard } from "@/lib/queries";
+import { getApprovalQueue, getContentApprovalQueue, getOutreachBoard } from "@/lib/queries";
 import { CHANNEL_LABEL } from "@/lib/config";
 import { socialAutomationEnabled } from "@/lib/features";
 import { Badge } from "@/components/ui/badge";
@@ -12,6 +12,8 @@ import { TwitterDailyPanel } from "@/components/outreach/twitter-daily-panel";
 import { LinkedInBlockersPanel } from "@/components/outreach/linkedin-blockers-panel";
 import { ScrapedSheetPrompt } from "@/components/outreach/scraped-sheet-prompt";
 import { LinkedInTestSendPanel } from "@/components/outreach/linkedin-test-panel";
+import { ContentApprovalActions } from "@/components/content/content-approval-actions";
+import { CONTENT_PLATFORMS, contentKindLabel } from "@/lib/content/platforms";
 import { TestRecipientPanel } from "@/components/outreach/test-recipient-panel";
 import { prisma } from "@/lib/db/prisma";
 import { connectionHasGmailSend } from "@/lib/outreach/send";
@@ -22,9 +24,10 @@ import { LINKEDIN_CONNECT_STEP, LINKEDIN_POST_CONNECTION_STEP } from "@/lib/link
 export const dynamic = "force-dynamic";
 
 export default async function OutreachPage() {
-  const [drafts, board, connection, session, linkedInProspects, linkedInDaily, twitterDaily, sendProvider, linkedInBlockers] =
+  const [drafts, contentDrafts, board, connection, session, linkedInProspects, linkedInDaily, twitterDaily, sendProvider, linkedInBlockers] =
     await Promise.all([
     getApprovalQueue().catch(() => []),
+    getContentApprovalQueue().catch(() => []),
     getOutreachBoard().catch(() => null),
     prisma.googleConnection.findFirst({ orderBy: { createdAt: "desc" } }).catch(() => null),
     getTestRecipientSession().catch(() => DEFAULT_TEST_SESSION),
@@ -108,7 +111,7 @@ export default async function OutreachPage() {
       <PageHeader
         eyebrow="Outreach engine"
         title="Sequences and approval"
-        description="Discover → Enrich → Research → Qualify → Rank → Connection. Decision Maker PASS plus commercial relevance — a LinkedIn URL is not enough. Daily caps are ceilings, not quotas. Follow-ups stop on reply. Sends stay behind the kill switch."
+        description="Discover → Enrich → Research → Qualify → Rank → Connection. Decision Maker PASS plus commercial relevance — a LinkedIn URL is not enough. Daily caps are ceilings, not quotas. Follow-ups stop on reply. Sends stay behind the kill switch. Content Agent drafts sit in the same queue and are never posted."
       />
       <ApproveAllBar eligibleCount={eligibleCount} pendingCount={orderedDrafts.length} />
       <ScrapedSheetPrompt exhausted={sheetBatch.exhausted} actors={scrapeActors} scrapers={scrapers} />
@@ -202,6 +205,56 @@ export default async function OutreachPage() {
           </div>
         </section>
       ) : null}
+      <section className="mb-8">
+        <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h2 className="font-[family-name:var(--font-syne)] text-lg">Content drafts</h2>
+            <p className="text-sm text-muted">
+              Posts, comments, and DMs from the Content Agent. Approving one does not post or send it.
+            </p>
+          </div>
+          <Link href="/content" className="text-sm text-emerald-300">
+            New content draft
+          </Link>
+        </div>
+        {contentDrafts.length === 0 ? (
+          <p className="text-sm text-muted">No content drafts waiting. Write one from Content.</p>
+        ) : (
+          <div className="space-y-5">
+            {contentDrafts.map((draft) => {
+              const platform = CONTENT_PLATFORMS.find((item) => item.id === draft.platform)?.label ?? draft.platform;
+              const who = draft.lead
+                ? draft.lead.company || draft.lead.name || draft.lead.leadId
+                : draft.topic || "Topic";
+              return (
+                <article key={draft.id} className="glass rounded-2xl p-5">
+                  <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      {draft.lead ? (
+                        <Link href={`/leads/${draft.lead.id}`} className="font-[family-name:var(--font-syne)] text-xl">
+                          {who}
+                        </Link>
+                      ) : (
+                        <p className="font-[family-name:var(--font-syne)] text-xl">{who}</p>
+                      )}
+                      <p className="mt-1 text-sm text-muted">
+                        {platform} · {contentKindLabel(draft.kind)}
+                        {draft.modelProvider ? ` · ${draft.modelProvider}` : " · heuristic"}
+                        {draft.topic && draft.lead ? ` · ${draft.topic}` : ""}
+                      </p>
+                    </div>
+                    <Badge>{draft.status.replaceAll("_", " ")}</Badge>
+                  </div>
+                  {draft.subject ? <p className="mb-2 text-sm text-emerald-100">{draft.subject}</p> : null}
+                  <pre className="whitespace-pre-wrap rounded-xl bg-black/30 p-4 font-sans text-sm">{draft.message}</pre>
+                  {draft.notes ? <p className="mt-3 text-xs text-muted">{draft.notes}</p> : null}
+                  <ContentApprovalActions draftId={draft.id} message={draft.message} subject={draft.subject} />
+                </article>
+              );
+            })}
+          </div>
+        )}
+      </section>
       {drafts.length === 0 ? (
         <EmptyState
           title="Nothing waiting for approval"

@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   Inbox,
   LayoutDashboard,
+  PenLine,
   Plug,
   Radar,
   Settings,
@@ -18,6 +19,7 @@ const nav = [
   { href: "/", label: "Home", icon: LayoutDashboard },
   { href: "/integrations/scraping", label: "Elite Scraper", icon: Radar },
   { href: "/leads", label: "Leads", icon: Users },
+  { href: "/content", label: "Content", icon: PenLine },
   { href: "/outreach", label: "Approvals", icon: Inbox },
   { href: "/analytics", label: "Results", icon: ChartNoAxesCombined },
   { href: "/integrations", label: "Connect", icon: Plug },

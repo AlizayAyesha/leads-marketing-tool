@@ -28,6 +28,7 @@ Discover ──► Research ──► Qualify ──► Draft ──► Approve 
 - **Research**: reads public company websites to find evidence (outdated site, no booking, hiring posts…).
 - **Qualify**: keeps leads that match your **Business Profile**: industries, locations, roles, demand keywords. Drops competitors, agencies, recruiters, juniors and any exclude keywords. Company listings from Google Maps are kept as a **Profile match** (with a score) when they fit that profile and have a website or email. The stricter buying-intent qualification still runs and can mark a lead DISQUALIFIED when there is no explicit request — that does not remove the Profile match.
 - **Draft**: email (and optional LinkedIn/X) drafts using your business name, services and booking link.
+- **Content Agent**: pick X, LinkedIn, Instagram, TikTok, Reddit, Facebook, or Threads, plus a lead or a topic. It loads that platform's growth playbook and drafts a post, a comment/reply, or a DM. The draft is saved to Approvals. Nothing is posted or sent.
 - **Approve**: nothing goes out until you approve it. A global **kill switch is ON by default**.
 - **Email**: sends through your connected Gmail inbox(es), with sender identity, postal address and an unsubscribe line in every email. Opt-outs are suppressed automatically.
 - **Optional module**: LinkedIn/X browser automation. **Off by default**; read [Compliance](#compliance--terms-of-service) first.
@@ -121,6 +122,16 @@ AI_MODEL=gpt-4o-mini
 
 Voice (speech-to-text / text-to-speech) only works with `AI_PROVIDER=openai`. Otherwise the browser's built-in speech is used.
 
+The Content Agent uses this same client and model. Leave the defaults (`AI_PROVIDER=openrouter`, `AI_MODEL=openrouter/free`) and it drafts on a free OpenRouter model. A paid OpenAI or OpenRouter key is optional. With no key, it still saves a heuristic draft for you to edit.
+
+## Growth playbooks
+
+[`skills/`](skills/README.md) holds seven playbooks, one per platform: `x-growth`, `linkedin-growth`, `instagram-growth`, `tiktok-growth`, `reddit-growth`, `facebook-growth`, `threads-growth`. Each file is a `SKILL.md`.
+
+This folder is **MIT-licensed** and adapted from [sergebulaev/x-skills](https://github.com/sergebulaev/x-skills), [linkedin-skills](https://github.com/sergebulaev/linkedin-skills), [instagram-skills](https://github.com/sergebulaev/instagram-skills), [tiktok-skills](https://github.com/sergebulaev/tiktok-skills), [facebook-skills](https://github.com/sergebulaev/facebook-skills), and [threads-skills](https://github.com/sergebulaev/threads-skills) (MIT, Copyright (c) 2026 Sergey Bulaev) and [1146345502/reddit-skills](https://github.com/1146345502/reddit-skills) (MIT, Copyright (c) 2025-2026 Qingyuan Yang). Attribution stays at the bottom of each playbook. The rest of this repository remains **AGPL-3.0**.
+
+Open **Content** in the sidebar. Choose the platform and whether you want a post, a comment/reply, or a DM, then pick a lead or type a topic. The agent loads the matching `SKILL.md` as system guidance and writes a draft. Review it under **Approvals → Content drafts**. Copy the text and publish it yourself. The app does not post, comment, or send a DM for you.
+
 ## Apify setup (bring your own token)
 
 Discovery scrapers run on **your** Apify account, so scraping costs and limits are yours.
@@ -202,7 +213,7 @@ npm run lint
 npm run build
 ```
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) and [docs/architecture/overview.md](docs/architecture/overview.md).
+See [CONTRIBUTING.md](CONTRIBUTING.md), [docs/architecture/overview.md](docs/architecture/overview.md), and [docs/ROADMAP.md](docs/ROADMAP.md) for what v0.3 and v0.4 are planned to add (not built yet).
 
 ## Contributing
 
@@ -223,6 +234,8 @@ Issues and PRs are welcome. Please:
 Copyright (c) 2026 Zar Labs ([zarlabs.online](https://zarlabs.online)).
 
 Licensed under the **GNU Affero General Public License v3.0** (`AGPL-3.0-only`). See [LICENSE](LICENSE) and [NOTICE](NOTICE).
+
+The `skills/` playbooks are the exception: that folder is MIT-licensed. See [skills/LICENSE](skills/LICENSE) and [skills/README.md](skills/README.md). The rest of the repository remains AGPL-3.0.
 
 In short: you can use, study, modify and share this software. If you distribute it, **or run a modified version as a network service for others**, you must make your modified source code available under the AGPL to those users.
 

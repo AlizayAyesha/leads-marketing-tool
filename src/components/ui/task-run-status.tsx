@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition, type ReactNode } from "react";
+import { useEffect, useState, useSyncExternalStore, useTransition, type ReactNode } from "react";
 import { useFormStatus } from "react-dom";
 import { useRouter } from "next/navigation";
 
@@ -59,48 +59,76 @@ export function TaskRunBanner({
   );
 }
 
+function subscribeClient() {
+  return () => {};
+}
+
+function getClientMounted() {
+  return true;
+}
+
+function getServerMounted() {
+  return false;
+}
+
+function readPersistedTask(persistKey?: string) {
+  if (!persistKey || typeof sessionStorage === "undefined") return null;
+  try {
+    const raw = sessionStorage.getItem(`task-run:${persistKey}`);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { phase: TaskPhase; lines: string[] | null };
+    if (parsed.phase === "done" || parsed.phase === "failed") return raw;
+  } catch {
+    /* ignore */
+  }
+  return null;
+}
+
+function parsePersistedTask(raw: string | null): { phase: TaskPhase; lines: string[] | null } | null {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as { phase: TaskPhase; lines: string[] | null };
+    if (parsed.phase === "done" || parsed.phase === "failed") return parsed;
+  } catch {
+    /* ignore */
+  }
+  return null;
+}
+
 export function useTaskRun(persistKey?: string) {
   const router = useRouter();
   const [, start] = useTransition();
   const [busy, setBusy] = useState(false);
-  const [phase, setPhase] = useState<TaskPhase>("idle");
-  const [lines, setLines] = useState<string[] | null>(null);
+  const [override, setOverride] = useState<{ phase: TaskPhase; lines: string[] | null } | null>(null);
+  const persistedRaw = useSyncExternalStore(
+    subscribeClient,
+    () => readPersistedTask(persistKey),
+    () => null,
+  );
+  const persisted = parsePersistedTask(persistedRaw);
+  const phase = override?.phase ?? persisted?.phase ?? "idle";
+  const lines = override ? override.lines : (persisted?.lines ?? null);
 
   useEffect(() => {
-    if (!persistKey) return;
-    try {
-      const raw = sessionStorage.getItem(`task-run:${persistKey}`);
-      if (!raw) return;
-      const parsed = JSON.parse(raw) as { phase: TaskPhase; lines: string[] | null };
-      if (parsed.phase === "done" || parsed.phase === "failed") {
-        setPhase(parsed.phase);
-        setLines(parsed.lines);
-      }
-    } catch {
-      /* ignore */
+    if (!persistKey || !override) return;
+    if (override.phase === "done" || override.phase === "failed") {
+      sessionStorage.setItem(`task-run:${persistKey}`, JSON.stringify(override));
     }
-  }, [persistKey]);
-
-  useEffect(() => {
-    if (!persistKey) return;
-    if (phase === "done" || phase === "failed") {
-      sessionStorage.setItem(`task-run:${persistKey}`, JSON.stringify({ phase, lines }));
-    }
-  }, [persistKey, phase, lines]);
+  }, [persistKey, override]);
 
   function run(fn: () => Promise<string[] | string | void>) {
     setBusy(true);
-    setPhase("running");
-    setLines(null);
+    setOverride({ phase: "running", lines: null });
     start(async () => {
       try {
         const result = await fn();
         const next = Array.isArray(result) ? result : result ? [result] : ["Finished."];
-        setLines(next);
-        setPhase("done");
+        setOverride({ phase: "done", lines: next });
       } catch (error) {
-        setLines([error instanceof Error ? error.message : "The task failed."]);
-        setPhase("failed");
+        setOverride({
+          phase: "failed",
+          lines: [error instanceof Error ? error.message : "The task failed."],
+        });
       } finally {
         setBusy(false);
         window.setTimeout(() => router.refresh(), 50);
@@ -117,28 +145,23 @@ export function useTaskRun(persistKey?: string) {
 }
 
 export function ClientOnly({ children }: { children: ReactNode }) {
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
+  const mounted = useSyncExternalStore(subscribeClient, getClientMounted, getServerMounted);
   if (!mounted) return null;
   return children;
 }
 
 export function FormSubmitStatus({ doneLine }: { doneLine: string }) {
   const { pending } = useFormStatus();
-  const wasPending = useRef(false);
   const [phase, setPhase] = useState<TaskPhase>("idle");
+  const [seenPending, setSeenPending] = useState(false);
 
-  useEffect(() => {
-    if (pending) {
-      wasPending.current = true;
-      setPhase("running");
-      return;
-    }
-    if (wasPending.current) {
-      wasPending.current = false;
-      setPhase("done");
-    }
-  }, [pending]);
+  if (pending && phase !== "running") {
+    setSeenPending(true);
+    setPhase("running");
+  } else if (!pending && seenPending && phase !== "done") {
+    setSeenPending(false);
+    setPhase("done");
+  }
 
   return <TaskRunBanner phase={phase} lines={phase === "done" ? [doneLine] : null} />;
 }

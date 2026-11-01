@@ -115,18 +115,27 @@ export function JarvisBar({
   const [thread, setThread] = useState(threadId);
   const threadRef = useRef(threadId);
 
+  const [threadFromProp, setThreadFromProp] = useState(threadId);
+  if (threadId !== threadFromProp) {
+    setThreadFromProp(threadId);
+    setThread(threadId);
+  }
+
   useEffect(() => {
     voiceReplyRef.current = voiceReply;
   }, [voiceReply]);
 
-  pendingRef.current = pending;
-  openaiVoiceRef.current = openaiVoice;
-  threadRef.current = thread;
+  useEffect(() => {
+    pendingRef.current = pending;
+  }, [pending]);
 
   useEffect(() => {
-    setThread(threadId);
-    threadRef.current = threadId;
-  }, [threadId]);
+    openaiVoiceRef.current = openaiVoice;
+  }, [openaiVoice]);
+
+  useEffect(() => {
+    threadRef.current = thread;
+  }, [thread]);
 
   useEffect(() => {
     void fetch("/api/jarvis/voice/status")
@@ -140,11 +149,12 @@ export function JarvisBar({
     window.speechSynthesis.getVoices();
     const refresh = () => window.speechSynthesis.getVoices();
     window.speechSynthesis.addEventListener("voiceschanged", refresh);
+    const audio = audioRef.current;
     return () => {
       recognitionRef.current?.abort();
-      recorderRef.current?.state === "recording" && recorderRef.current.stop();
+      if (recorderRef.current?.state === "recording") recorderRef.current.stop();
       streamRef.current?.getTracks().forEach((track) => track.stop());
-      audioRef.current?.pause();
+      audio?.pause();
       window.speechSynthesis.removeEventListener("voiceschanged", refresh);
       window.speechSynthesis.cancel();
     };

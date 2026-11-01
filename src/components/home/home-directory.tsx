@@ -12,6 +12,11 @@ const TASKS = [
     detail: "Everyone in the database — open a file, research, or suppress.",
   },
   {
+    href: "/content",
+    title: "Content Agent",
+    detail: "Draft a post, comment, or DM from a growth playbook. Nothing is posted for you.",
+  },
+  {
     href: "/outreach",
     title: "Approvals & status",
     detail: "Email drafts, kill switch, LinkedIn / X daily toggles. Send from Home.",

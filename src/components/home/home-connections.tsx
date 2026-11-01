@@ -57,10 +57,7 @@ export function HomeConnections({
     if (searchParams.get("connect") !== "linkedin") return;
     autoLinkedInStarted.current = true;
 
-    const googleError = searchParams.get("google");
-    const detail = searchParams.get("detail");
-    if (googleError === "error" && detail) {
-      setMessage(`Google connect failed: ${detail}`);
+    if (searchParams.get("google") === "error" && searchParams.get("detail")) {
       router.replace("/");
       return;
     }
@@ -70,6 +67,11 @@ export function HomeConnections({
   }, [connectLinkedInChrome, router, searchParams, socialAutomation]);
 
   const outreachReady = socialAutomation ? gmailSendReady && chromeConnected : gmailSendReady;
+  const googleDetail = searchParams.get("google") === "error" ? searchParams.get("detail") : null;
+  const googleFailure = googleDetail ? `Google connect failed: ${googleDetail}` : null;
+  if (googleFailure && message !== googleFailure) {
+    setMessage(googleFailure);
+  }
 
   return (
     <section className="glass mb-8 rounded-2xl p-5">

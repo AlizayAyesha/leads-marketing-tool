@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 
 import { runEliteExperimentAction } from "@/lib/actions/elite";
 import {
@@ -13,6 +13,18 @@ import {
 } from "@/lib/elite/catalog";
 import { Button } from "@/components/ui/button";
 import { TaskRunBanner, useTaskRun } from "@/components/ui/task-run-status";
+
+function subscribeClient() {
+  return () => {};
+}
+
+function getClientMounted() {
+  return true;
+}
+
+function getServerMounted() {
+  return false;
+}
 
 type ExperimentSummary = {
   market: string;
@@ -50,13 +62,9 @@ function summaryLines(report: ExperimentSummary) {
 
 export function EliteEcosystemsPanel({ last }: { last?: ExperimentSummary | null }) {
   const [selected, setSelected] = useState<EliteEcosystemId>(FIRST_ELITE_EXPERIMENT.ecosystemIds[0]);
-  const [mounted, setMounted] = useState(false);
+  const mounted = useSyncExternalStore(subscribeClient, getClientMounted, getServerMounted);
   const task = useTaskRun();
   const eco = ELITE_ECOSYSTEMS.find((item) => item.id === selected) ?? ELITE_ECOSYSTEMS[0];
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   const showLastDone = mounted && task.phase === "idle" && Boolean(last?.sheet?.ok);
 

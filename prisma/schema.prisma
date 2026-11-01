@@ -63,6 +63,22 @@ enum DraftStatus {
   SUPERSEDED
 }
 
+enum ContentPlatform {
+  X
+  LINKEDIN
+  INSTAGRAM
+  TIKTOK
+  REDDIT
+  FACEBOOK
+  THREADS
+}
+
+enum ContentKind {
+  POST
+  COMMENT
+  DM
+}
+
 enum AgentRuntimeStatus {
   IDLE
   RUNNING
@@ -195,6 +211,7 @@ model Lead {
   audits              LeadAudit[]
   opportunities       Opportunity[]
   drafts              OutreachDraft[]
+  contentDrafts       ContentDraft[]
   events              OutreachEvent[]
   sequences           OutreachSequence[]
   replies             OutreachReply[]
@@ -564,6 +581,34 @@ model OutreachDraft {
   @@index([status])
   @@index([channel])
   @@index([campaignId])
+}
+
+model ContentDraft {
+  id     String @id @default(uuid())
+  leadId String?
+  lead   Lead?  @relation(fields: [leadId], references: [id], onDelete: SetNull)
+
+  platform        ContentPlatform
+  kind            ContentKind
+  topic           String?
+  context         String?
+  subject         String?
+  message         String
+  notes           String?
+  status          DraftStatus     @default(PENDING_APPROVAL)
+  rejectionReason String?
+  approvedAt      DateTime?
+  approvedBy      String?
+  editedAt        DateTime?
+  mode            String          @default("heuristic")
+  modelProvider   String?
+  skillId         String
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  @@index([status, createdAt])
+  @@index([platform])
+  @@index([leadId])
 }
 
 model OutreachEvent {
