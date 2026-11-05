@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 
+import { withUser } from "@/lib/auth/http";
 import { runLiveOutreach } from "@/lib/outreach/run-live";
 
-export async function POST() {
+export const POST = withUser(async () => {
   try {
     const report = await runLiveOutreach({ importSheet: true });
     return NextResponse.json(report);
@@ -12,7 +13,7 @@ export async function POST() {
       { status: 500 },
     );
   }
-}
+});
 
 export async function GET() {
   return NextResponse.json(

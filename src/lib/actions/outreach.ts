@@ -163,7 +163,7 @@ export async function approveDraft(draftId: string) {
   return {
     ok: true,
     sendReady: canPerformExternalAction(draft.status) && false,
-    message: "Approved. Kill switch / draft-only mode is on — Jarvis queued the sequence but did not send.",
+    message: "Approved. Send mode is draft-only. Nothing was sent.",
   };
 }
 

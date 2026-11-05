@@ -44,10 +44,11 @@ function escapeHtml(value: string) {
   return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
-function withFooter(body: string, html: string | null | undefined) {
+function withFooter(body: string, html: string | null | undefined, unsubscribeUrl?: string | null) {
   const footer = complianceFooter();
   if (!footer || /unsubscribe/i.test(body)) return { body, html };
-  const text = `${body.trimEnd()}\n\n--\n${footer}`;
+  const link = unsubscribeUrl?.trim() ? `\nUnsubscribe: ${unsubscribeUrl.trim()}` : "";
+  const text = `${body.trimEnd()}\n\n--\n${footer}${link}`;
   let outHtml = html;
   if (html?.trim()) {
     const block = `<p style="font-size:12px;color:#888;margin-top:24px;">${escapeHtml(footer).replace(/\n/g, "<br/>")}</p>`;
@@ -75,7 +76,7 @@ export function rfc822({
   /** mailto: and/or https: unsubscribe targets. Defaults to a mailto: to the Reply-To/From address. */
   unsubscribe?: { mailto?: string | null; url?: string | null } | null;
 }) {
-  ({ body, html } = withFooter(body, html));
+  ({ body, html } = withFooter(body, html, unsubscribe?.url));
   const headers = [
     `To: ${to}`,
     `From: ${from}`,

@@ -7,6 +7,11 @@ import { getGoogleClient } from "@/lib/data-sources/google";
 import { readSuppressionState, writeAudit } from "@/lib/db/settings";
 import { assertExternalActionAllowed } from "@/lib/intelligence/approval";
 import { canSendMessage } from "@/lib/outreach/gate";
+import { immediateSendDecision } from "@/lib/outreach/pre-send";
+import { evaluateSenderConfiguration } from "@/lib/outreach/sender-config";
+import { signUnsubscribeToken, unsubscribeUrl } from "@/lib/outreach/unsubscribe-token";
+import { commitSendUsage, releaseSendUsage, reserveSendUsage } from "@/lib/billing/ledger";
+import { HARD_DAILY_SEND_LIMIT } from "@/lib/outreach/policy";
 import { auditLooksLikeQuotaPass } from "@/lib/outreach/quality";
 import { qualifyCommercial } from "@/lib/intelligence/commercial";
 import { prospectFromLeadFields } from "@/lib/intelligence/prospect";
@@ -48,6 +53,7 @@ export async function sendGmailMessage(input: {
   fromOverride?: string | null;
   replyTo?: string | null;
   draftId?: string | null;
+  unsubscribe?: { mailto?: string | null; url?: string | null } | null;
 }) {
   // Multi-inbox pool: when sender inboxes are connected, round-robin across them with per-inbox caps.
   let poolAccountId: string | null = null;
@@ -79,6 +85,7 @@ export async function sendGmailMessage(input: {
         body: input.body,
         html: input.html,
         replyTo,
+        unsubscribe: input.unsubscribe,
       }),
     },
   });
@@ -165,6 +172,7 @@ export async function sendApprovedDraft(
     testRecipientSend: draft.lead.testRecipient,
     suppressed: draft.lead.suppressed || suppression === "suppressed",
     unsubscribed: suppression === "suppressed",
+    bounced: Boolean(draft.lead.bouncedAt),
     suppressionUnknown: suppression === "unknown",
     alreadySentDraft: false,
     draftStatus: draft.status,
@@ -215,6 +223,59 @@ export async function sendApprovedDraft(
   const plainBody = usePremiumCard ? buildColdEmailText(cardInput) : draft.message;
   const htmlBody = usePremiumCard ? buildColdEmailHtml(cardInput) : null;
 
+  const freshLead = await prisma.lead.findUnique({ where: { id: draft.leadId } });
+  const freshPolicy = await getOutreachEnginePolicy();
+  const freshSuppression = await readSuppressionState({
+    email: freshLead?.email,
+    websiteHost: freshLead?.websiteHost,
+    phone: freshLead?.phone,
+  });
+  const sender = evaluateSenderConfiguration();
+  const sentEvent = await prisma.outreachEvent.findFirst({ where: { draftId, type: "SENT" } });
+  const limit = Math.min(HARD_DAILY_SEND_LIMIT, freshPolicy.dailySendLimit);
+  const sentNow = await countSentToday();
+  const sequenceActive = (draft.sequenceStep?.sequence.status ?? "ACTIVE") === "ACTIVE";
+  const decision = immediateSendDecision({
+    sendsPaused: freshPolicy.sendsPaused,
+    sendMode: freshPolicy.sendMode,
+    suppressed: Boolean(freshLead?.suppressed) || freshSuppression === "suppressed",
+    unsubscribed: freshSuppression === "suppressed",
+    bounced: Boolean(freshLead?.bouncedAt),
+    leadStatus: freshLead?.status ?? "DO_NOT_CONTACT",
+    draftStatus: "APPROVED",
+    alreadySent: Boolean(sentEvent),
+    explicitApproval: input.explicitApproval,
+    quotaRemaining: Math.max(0, limit - sentNow),
+    senderBlockCode: sender.blockCode,
+    sequenceActive,
+  });
+  if (!decision.ok) {
+    await prisma.outreachDraft.updateMany({
+      where: { id: draftId, gmailMessageId: claimToken },
+      data: { gmailMessageId: null },
+    });
+    return { ok: false as const, sent: false, code: decision.code, message: decision.message };
+  }
+  const usage = await reserveSendUsage({ draftId, limit, tenantId: freshLead?.tenantId });
+  if (!usage.ok) {
+    await prisma.outreachDraft.updateMany({
+      where: { id: draftId, gmailMessageId: claimToken },
+      data: { gmailMessageId: null },
+    });
+    return { ok: false as const, sent: false, code: usage.code, message: usage.message };
+  }
+
+  let unsubscribe: { mailto?: string | null; url?: string | null } | null = null;
+  if (freshLead?.email) {
+    const token = signUnsubscribeToken({
+      email: freshLead.email.toLowerCase(),
+      leadId: freshLead.id,
+      tenantId: freshLead.tenantId || "tenant_zar_labs",
+      exp: Math.floor(Date.now() / 1000) + 180 * 24 * 60 * 60,
+    });
+    unsubscribe = { mailto: freshLead.email, url: unsubscribeUrl(token) };
+  }
+
   try {
     const sent = await sendGmailMessage({
       to: draft.lead.email,
@@ -222,6 +283,7 @@ export async function sendApprovedDraft(
       body: plainBody,
       html: htmlBody,
       draftId,
+      unsubscribe,
     });
 
     await prisma.outreachDraft.update({
@@ -248,6 +310,7 @@ export async function sendApprovedDraft(
       },
     });
     if (draft.sequenceStep) await markStepSent(draft.sequenceStep.id);
+    await commitSendUsage(draftId, freshLead?.tenantId).catch(() => undefined);
     await writeAudit({
       action: "outreach.send",
       entity: "outreach_draft",
@@ -278,6 +341,7 @@ export async function sendApprovedDraft(
       where: { id: draftId, gmailMessageId: claimToken },
       data: { gmailMessageId: null },
     });
+    await releaseSendUsage(draftId, freshLead?.tenantId).catch(() => undefined);
     await writeAudit({
       action: "outreach.send.blocked",
       entity: "outreach_draft",

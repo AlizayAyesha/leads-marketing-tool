@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { withUser } from "@/lib/auth/http";
 import { SOCIAL_AUTOMATION_DISABLED_REASON, socialAutomationEnabled } from "@/lib/features";
 
 import { listLinkedInLeadBlockers } from "@/lib/linkedin/connection/blockers";
@@ -14,7 +15,7 @@ import { writeAudit } from "@/lib/db/settings";
  * LinkedIn-only live send. Does not re-run the full research pipeline.
  * Requires Jarvis Chrome connected with LinkedIn signed in.
  */
-export async function POST() {
+export const POST = withUser(async () => {
   if (!socialAutomationEnabled()) {
     return NextResponse.json({ ok: false, error: SOCIAL_AUTOMATION_DISABLED_REASON }, { status: 403 });
   }
@@ -89,7 +90,7 @@ export async function POST() {
       { status: 500 },
     );
   }
-}
+});
 
 export async function GET() {
   return NextResponse.json(

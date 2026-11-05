@@ -30,13 +30,13 @@ export function resolveOutreachFromAddress(input?: {
 }) {
   const connected = (input?.connectedEmail ?? "").trim();
   const email =
-    (input?.envFrom ?? process.env.OUTREACH_FROM_EMAIL ?? "").trim() || connected || "me";
+    (input?.envFrom ?? process.env.OUTREACH_FROM_EMAIL ?? "").trim() || connected;
   const name =
     (input?.envName ?? process.env.OUTREACH_FROM_NAME ?? "").trim() || BRAND_OUTREACH_FROM_NAME;
   return {
     email,
     name,
-    header: email.includes("<") ? email : `${name} <${email}>`,
+    header: email ? (email.includes("<") ? email : `${name} <${email}>`) : name,
     connectedHint: connected || null,
   };
 }

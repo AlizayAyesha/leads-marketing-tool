@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { withUser } from "@/lib/auth/http";
 import { runJarvisVoiceTurn } from "@/lib/jarvis/voice";
 
 export const dynamic = "force-dynamic";
@@ -7,7 +8,7 @@ export const maxDuration = 60;
 
 const MAX_AUDIO_BYTES = 8 * 1024 * 1024;
 
-export async function POST(request: Request) {
+export const POST = withUser(async (request) => {
   const form = await request.formData();
   const text = String(form.get("text") ?? "").trim();
   const speak = String(form.get("speak") ?? "true") !== "false";
@@ -38,4 +39,4 @@ export async function POST(request: Request) {
     const status = /not configured/i.test(message) ? 503 : 500;
     return NextResponse.json({ error: message }, { status });
   }
-}
+});

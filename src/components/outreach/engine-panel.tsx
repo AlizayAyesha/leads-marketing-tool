@@ -160,8 +160,8 @@ export function OutreachEnginePanel({
       </details>
       <p className="mt-4 text-xs text-muted">
         {socialAutomation ? "LinkedIn and X use Jarvis Chrome. " : ""}
-        Instagram stays draft-only. Replies stop a sequence. Daily caps are Jarvis ceilings. Keep /api/queue/process on
-        a schedule so follow-ups keep moving.
+        Instagram stays draft-only. Replies, bounces, and unsubscribes stop a sequence. Daily caps are Jarvis ceilings.
+        The queue worker runs sends. Opening a status URL does not.
       </p>
     </section>
   );

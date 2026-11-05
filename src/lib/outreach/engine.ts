@@ -4,8 +4,10 @@ import { prisma } from "@/lib/db/prisma";
 import { readSuppressionState, writeAudit } from "@/lib/db/settings";
 import { getAgent } from "@/lib/agents/registry";
 import { runLeadPipeline } from "@/lib/pipeline/run";
-import { getGoogleClient } from "@/lib/data-sources/google";
+import { classifyInbound } from "@/lib/outreach/inbound";
+import { applyDeliveryEvent } from "@/lib/outreach/delivery";
 import { google } from "googleapis";
+import { getGoogleClient } from "@/lib/data-sources/google";
 import { importFromConfiguredSheet } from "@/lib/google/sync";
 import { commandForbidsSending } from "@/lib/intelligence/approval";
 import { classifyIntent, classifyReply, suggestedReply, type ReplyIntent } from "@/lib/outreach/replies";
@@ -200,6 +202,7 @@ export async function tickDueSequenceSteps(input: { forbidSend?: boolean } = {})
       auditedAt: lead.audits[0]?.createdAt,
       suppressed: lead.suppressed || suppression === "suppressed",
       unsubscribed: suppression === "suppressed",
+      bounced: Boolean(lead.bouncedAt),
       suppressionUnknown: suppression === "unknown",
       leadStatus: lead.status,
       sequenceStopReason: step.sequence.stopReason,
@@ -296,7 +299,37 @@ export async function ingestReply(input: {
   text: string;
   channel?: "EMAIL" | "LINKEDIN" | "INSTAGRAM" | "FACEBOOK" | "X_TWITTER";
   intent?: ReplyIntent;
+  from?: string | null;
+  subject?: string | null;
+  provider?: string;
+  providerEventId?: string | null;
 }) {
+  const inbound = classifyInbound({ from: input.from, subject: input.subject, body: input.text });
+  if (inbound === "bounce" && (input.channel ?? "EMAIL") === "EMAIL") {
+    const lead = await prisma.lead.findUnique({ where: { id: input.leadId } });
+    if (!lead) throw new Error("Lead not found.");
+    const applied = await applyDeliveryEvent({
+      provider: input.provider || "inbound",
+      providerEventId: input.providerEventId || `inbound:${lead.id}:${input.text.slice(0, 80)}`,
+      type: "BOUNCE",
+      email: lead.email,
+      leadId: lead.id,
+      tenantId: lead.tenantId,
+      payload: { from: input.from ?? null, subject: input.subject ?? null },
+    });
+    return {
+      ok: true,
+      intent: "BOUNCE" as const,
+      bounced: true,
+      duplicate: applied.duplicate,
+      stopped: "stopped" in applied ? applied.stopped : 0,
+      escalated: false,
+      draftId: null,
+      summary: "Bounce recorded. Follow-ups are stopped and the address is suppressed.",
+      conversationStage: null,
+      pitchAllowed: false,
+    };
+  }
   const lead = await prisma.lead.findUnique({ where: { id: input.leadId } });
   if (!lead) throw new Error("Lead not found.");
   const policy = await getOutreachEnginePolicy();
@@ -404,7 +437,7 @@ export async function ingestReply(input: {
       name: lead.name,
       bookingUrl: policy.bookingUrl?.trim() || `${(process.env.APP_URL?.trim() || "http://localhost:3000").replace(/\/$/, "")}/go/website`,
       channel: input.channel ?? "EMAIL",
-      contactEmail: process.env.OUTREACH_FROM_EMAIL || "you@example.com",
+      contactEmail: (process.env.OUTREACH_FROM_EMAIL ?? "").trim(),
     });
     if (suggestion.message && classified.intent !== "UNSUBSCRIBE" && classified.intent !== "NOT_INTERESTED") {
       const created = await prisma.outreachDraft.create({
@@ -463,7 +496,7 @@ export async function ingestReply(input: {
 }
 
 export async function pollGmailReplies() {
-  const out = { replies: 0, stopped: 0, escalated: 0 };
+  const out = { replies: 0, bounces: 0, stopped: 0, escalated: 0 };
   const connection = await prisma.googleConnection.findFirst({ orderBy: { createdAt: "desc" } });
   if (!connection?.scopes.some((scope) => scope.includes("gmail.readonly") || scope.includes("gmail.modify"))) {
     return out;
@@ -498,12 +531,22 @@ export async function pollGmailReplies() {
       if (messages.length < 2) continue;
       const last = messages[messages.length - 1];
       const from = last.payload?.headers?.find((header) => header.name?.toLowerCase() === "from")?.value ?? "";
-      if (self && from.toLowerCase().includes(self)) continue;
+      const subject = last.payload?.headers?.find((header) => header.name?.toLowerCase() === "subject")?.value ?? "";
+      if (self && from.toLowerCase().includes(self) && !/mailer-daemon|postmaster/i.test(from)) continue;
       const snippet = (last.snippet ?? "").trim();
       if (!snippet) continue;
-      const ingested = await ingestReply({ leadId: event.leadId, text: snippet, channel: "EMAIL" });
-      out.replies += 1;
-      out.stopped += ingested.stopped;
+      const ingested = await ingestReply({
+        leadId: event.leadId,
+        text: snippet,
+        channel: "EMAIL",
+        from,
+        subject,
+        provider: "gmail",
+        providerEventId: last.id ? `gmail:${last.id}` : null,
+      });
+      if ("bounced" in ingested && ingested.bounced) out.bounces += 1;
+      else out.replies += 1;
+      out.stopped += ingested.stopped ?? 0;
       if (ingested.escalated) out.escalated += 1;
     } catch {
       continue;

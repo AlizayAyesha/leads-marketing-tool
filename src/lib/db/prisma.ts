@@ -1,5 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 
+import { extendTenantIsolation } from "@/lib/db/tenant-scope";
+
 const globalForPrisma = globalThis as unknown as {
   prisma?: PrismaClient;
 };
@@ -25,10 +27,11 @@ export function resolveDatabaseUrl(raw = process.env.DATABASE_URL ?? "") {
 const databaseUrl = resolveDatabaseUrl();
 
 function createPrismaClient() {
-  return new PrismaClient({
+  const base = new PrismaClient({
     log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"],
     ...(databaseUrl ? { datasources: { db: { url: databaseUrl } } } : {}),
   });
+  return extendTenantIsolation(base) as unknown as PrismaClient;
 }
 
 export const prisma = globalForPrisma.prisma ?? createPrismaClient();

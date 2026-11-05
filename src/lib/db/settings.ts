@@ -2,6 +2,8 @@ import "server-only";
 
 import type { Prisma } from "@prisma/client";
 
+import { currentPrincipal } from "@/lib/auth/context";
+import { defaultTenantId } from "@/lib/auth/config";
 import { prisma } from "@/lib/db/prisma";
 
 function isUnreachableDb(error: unknown) {
@@ -13,6 +15,18 @@ function isUnreachableDb(error: unknown) {
 
 export async function getSetting<T>(key: string, fallback: T): Promise<T> {
   try {
+    const principal = currentPrincipal();
+    if (principal?.scope === "tenant") {
+      const scoped = await prisma.tenantSetting.findUnique({
+        where: { tenantId_key: { tenantId: principal.tenantId, key } },
+      });
+      if (scoped) return scoped.value as T;
+      if (principal.tenantId === defaultTenantId()) {
+        const legacy = await prisma.setting.findUnique({ where: { key } });
+        if (legacy) return legacy.value as T;
+      }
+      return fallback;
+    }
     const row = await prisma.setting.findUnique({ where: { key } });
     return row ? (row.value as T) : fallback;
   } catch (error) {
@@ -22,6 +36,15 @@ export async function getSetting<T>(key: string, fallback: T): Promise<T> {
 }
 
 export async function setSetting(key: string, value: Prisma.InputJsonValue) {
+  const principal = currentPrincipal();
+  if (principal?.scope === "tenant") {
+    await prisma.tenantSetting.upsert({
+      where: { tenantId_key: { tenantId: principal.tenantId, key } },
+      update: { value },
+      create: { tenantId: principal.tenantId, key, value },
+    });
+    return;
+  }
   await prisma.setting.upsert({
     where: { key },
     update: { value },

@@ -55,10 +55,17 @@ describe("conservative caps", () => {
 });
 
 describe("stored token encryption", () => {
+  const previous = process.env.CREDENTIAL_ENCRYPTION_KEY;
   it("round-trips and never stores plaintext", () => {
-    const stored = encodeStoredToken("apify_api_ABC123456");
-    assert.equal(JSON.stringify(stored).includes("ABC123456"), false);
-    assert.deepEqual(decodeStoredToken(stored), { token: "apify_api_ABC123456", legacyPlaintext: false });
+    process.env.CREDENTIAL_ENCRYPTION_KEY = "ab".repeat(32);
+    try {
+      const stored = encodeStoredToken("apify_api_ABC123456");
+      assert.equal(JSON.stringify(stored).includes("ABC123456"), false);
+      assert.deepEqual(decodeStoredToken(stored), { token: "apify_api_ABC123456", legacyPlaintext: false });
+    } finally {
+      if (previous === undefined) delete process.env.CREDENTIAL_ENCRYPTION_KEY;
+      else process.env.CREDENTIAL_ENCRYPTION_KEY = previous;
+    }
   });
   it("reads legacy plaintext and flags it for migration", () => {
     assert.deepEqual(decodeStoredToken({ token: "old" }), { token: "old", legacyPlaintext: true });

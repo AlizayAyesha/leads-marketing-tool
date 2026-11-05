@@ -1,6 +1,7 @@
 import "server-only";
 
 import { resolveAIConfig } from "@/lib/ai/config";
+import { describeAuthConfig } from "@/lib/auth/config";
 
 import { LINKEDIN_SEND_UNAVAILABLE_REASON } from "@/lib/linkedin/send/types";
 import { getChromeSession } from "@/lib/tools/chrome";
@@ -44,6 +45,7 @@ export function getEnv() {
 
 export function integrationStatus() {
   const env = getEnv();
+  const describeAuth = () => describeAuthConfig();
   const chrome = getChromeSession();
   return {
     database: {
@@ -69,14 +71,9 @@ export function integrationStatus() {
           : "Unset — use CSV / manual intake, or add GOOGLE_CLIENT_ID and SECRET",
     },
     supabase: {
-      configured: Boolean(env.supabaseUrl && env.supabaseAnonKey),
+      configured: describeAuth().verifierReady,
       label: "Supabase Auth",
-      detail:
-        env.supabaseUrl && env.supabaseAnonKey
-          ? "Supabase Auth ready"
-          : env.devAuthEnabled
-            ? "Local operator mode (DEV_AUTH_ENABLED)"
-            : "Supabase Auth is not configured",
+      detail: describeAuth().detail,
     },
     apify: {
       configured: Boolean(env.apifyToken),

@@ -132,7 +132,7 @@ export function classifyIntent(intent: ReplyIntent, text = ""): ReplyClassificat
 }
 
 export function ourContactEmail() {
-  return (process.env.OUTREACH_FROM_EMAIL ?? "").trim() || "you@example.com";
+  return (process.env.OUTREACH_FROM_EMAIL ?? "").trim();
 }
 
 export function suggestedReply(input: {
@@ -149,15 +149,18 @@ export function suggestedReply(input: {
   const bookLine = `Book a short meeting here: ${book}`;
 
   if (input.intent === "ASKS_EMAIL") {
+    const emailLine = email
+      ? `Best email is ${email}.`
+      : "The sender email is not configured yet, so this draft does not invent an address.";
     if (social) {
       return {
         subject: "",
-        message: `Appreciate that — happy to chat. Best email is ${email}. ${bookLine}`,
+        message: `Appreciate that — happy to chat. ${emailLine} ${bookLine}`,
       };
     }
     return {
       subject: "your business — let's book a time",
-      message: `Hi ${who},\n\nThanks for reaching out. You can reach us at ${email}.\n\n${bookLine}\n\n— ${getBusinessProfile().businessName}`,
+      message: `Hi ${who},\n\nThanks for reaching out. ${emailLine}\n\n${bookLine}\n\n— ${getBusinessProfile().businessName}`,
     };
   }
   if (input.intent === "WANTS_MEETING") {
@@ -167,9 +170,10 @@ export function suggestedReply(input: {
         message: `Glad this is useful. ${bookLine}`,
       };
     }
+    const emailLine = email ? `\n\nIf email is easier: ${email}` : "";
     return {
       subject: "Times to talk",
-      message: `Hi ${who},\n\nGlad this is useful. ${bookLine}\n\nIf email is easier: ${email}\n\n— ${getBusinessProfile().businessName}`,
+      message: `Hi ${who},\n\nGlad this is useful. ${bookLine}${emailLine}\n\n— ${getBusinessProfile().businessName}`,
     };
   }
   if (input.intent === "NEEDS_PRICING") {

@@ -162,11 +162,31 @@ export function GoogleSheetsPanel({
         >
           Push {leadCount} leads to Sheet
         </Button>
-        <Button asChild variant="outline">
-          <a href="/api/sheets/import">Import Leads tab</a>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => {
+            void fetch("/api/sheets/import", { method: "POST" }).then(async (response) => {
+              const body = (await response.json().catch(() => null)) as { error?: { message?: string } } | null;
+              setOk(response.ok);
+              setMessage(response.ok ? "Import queued. Nothing was emailed." : body?.error?.message || "Import was rejected.");
+            });
+          }}
+        >
+          Import Leads tab
         </Button>
-        <Button asChild variant="outline">
-          <a href="/api/sheets/export">Export enrichment tab</a>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => {
+            void fetch("/api/sheets/export", { method: "POST" }).then(async (response) => {
+              const body = (await response.json().catch(() => null)) as { error?: { message?: string } } | null;
+              setOk(response.ok);
+              setMessage(response.ok ? "Export queued. Nothing was emailed." : body?.error?.message || "Export was rejected.");
+            });
+          }}
+        >
+          Export enrichment tab
         </Button>
         <Button
           type="button"

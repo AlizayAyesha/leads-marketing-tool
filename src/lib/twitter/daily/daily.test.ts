@@ -9,6 +9,7 @@ import { inspectTwitterPage } from "@/lib/twitter/session/inspect";
 import type { TwitterBrowserPage } from "@/lib/browser/twitter-page";
 import type { TwitterSendProvider } from "@/lib/twitter/send/types";
 import { DEFAULT_OUTREACH_ENGINE } from "@/lib/outreach/policy";
+import { getBusinessProfile } from "@/lib/business/profile";
 
 function fakePage(input: {
   text?: string;
@@ -416,7 +417,7 @@ describe("twitter dm copy", () => {
       originalPost: "I need a web developer to rebuild our site",
     });
     assert.match(text, /Alex/);
-    assert.match(text, /Acme Studio/);
+    assert.match(text, new RegExp(getBusinessProfile().businessName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
     assert.match(text, /15-min/);
   });
 });

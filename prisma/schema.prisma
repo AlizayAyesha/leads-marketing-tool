@@ -117,15 +117,18 @@ enum ZarService {
 }
 
 model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  name      String?
-  role      UserRole @default(OPERATOR)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id             String   @id @default(uuid())
+  email          String   @unique
+  name           String?
+  role           UserRole @default(OPERATOR)
+  /** Supabase auth.users id. Authorization never trusts a browser-supplied copy of this. */
+  supabaseUserId String?  @unique
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   outreachEvents OutreachEvent[]
   agentRuns      AgentRun[]
+  memberships    Membership[]
 }
 
 model LeadSource {
@@ -182,6 +185,8 @@ model Lead {
   testRecipient  Boolean          @default(false)
   environment    String           @default("PRODUCTION")
   fixture        Boolean          @default(false)
+  tenantId       String?
+  bouncedAt      DateTime?
   lastActivityAt DateTime         @default(now())
 
   sourceId  String?
@@ -224,6 +229,7 @@ model Lead {
   @@index([testRecipient])
   @@index([environment])
   @@index([fixture])
+  @@index([tenantId])
 }
 
 model LeadResearch {
@@ -554,6 +560,7 @@ model OutreachDraft {
   promptVersion       Int?
   modelProvider       String?
   traceId             String?
+  tenantId            String?
   createdAt           DateTime        @default(now())
   updatedAt           DateTime        @updatedAt
 
@@ -577,6 +584,7 @@ model OutreachEvent {
   type      String
   channel   OutreachChannel?
   payload   Json             @default("{}")
+  tenantId  String?
   actorId   String?
   actor     User?            @relation(fields: [actorId], references: [id])
   createdAt DateTime         @default(now())
@@ -609,6 +617,7 @@ model OutreachSequence {
   channel     OutreachChannel
   status      SequenceStatus  @default(ACTIVE)
   stopReason  String?
+  tenantId    String?
   currentStep Int             @default(0)
   nextRunAt   DateTime?
   lastSentAt  DateTime?
@@ -649,6 +658,7 @@ model OutreachReply {
   intent    String
   rawText   String
   summary   String?
+  tenantId  String?
   escalated Boolean         @default(false)
   draftId   String?
   createdAt DateTime        @default(now())
@@ -702,6 +712,7 @@ model Conversation {
   lead   Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
 
   channel         OutreachChannel
+  tenantId        String?
   stage           ConversationStage @default(NONE)
   heat            ConversationHeat  @default(COLD)
   intentScore     Int               @default(0)
@@ -736,6 +747,7 @@ model Campaign {
   id                 String           @id @default(uuid())
   name               String
   description        String?
+  tenantId           String?
   channel            OutreachChannel?
   status             CampaignStatus   @default(DRAFT)
   filters            Json             @default("{}")
@@ -845,15 +857,21 @@ model Task {
   runId   String?   @unique
   run     AgentRun? @relation(fields: [runId], references: [id])
 
-  availableAt DateTime  @default(now())
-  startedAt   DateTime?
-  completedAt DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  availableAt    DateTime  @default(now())
+  startedAt      DateTime?
+  completedAt    DateTime?
+  leaseOwner     String?
+  leaseExpiresAt DateTime?
+  idempotencyKey String?   @unique
+  tenantId       String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   @@index([status, availableAt])
+  @@index([status, leaseExpiresAt])
   @@index([type])
   @@index([leadId])
+  @@index([tenantId])
   @@index([createdAt])
 }
 
@@ -1295,6 +1313,7 @@ model BrainEvent {
 
 model GoogleConnection {
   id           String    @id @default(uuid())
+  tenantId     String?
   googleEmail  String?
   accessToken  String?
   refreshToken String?
@@ -1302,10 +1321,13 @@ model GoogleConnection {
   scopes       String[]  @default([])
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
+
+  @@index([tenantId])
 }
 
 model AiCredential {
   id            String         @id @default(uuid())
+  tenantId      String?
   name          String
   provider      String         @default("OPENAI")
   keyCiphertext String
@@ -1360,6 +1382,7 @@ model BusinessProfile {
 /// Approved drafts are assigned round-robin across enabled accounts, each capped by dailySendLimit.
 model GmailSenderAccount {
   id                String            @id @default(uuid())
+  tenantId          String?
   email             String            @unique
   displayName       String?
   refreshTokenEnc   String?
@@ -1382,4 +1405,78 @@ model GmailSenderSend {
   sentAt    DateTime           @default(now())
 
   @@index([accountId, sentAt])
+}
+
+/// One workspace inside Jarvis. Identity comes from the Zar Labs Supabase project.
+model Tenant {
+  id          String       @id
+  slug        String       @unique
+  name        String
+  createdAt   DateTime     @default(now())
+  memberships Membership[]
+  settings    TenantSetting[]
+  usage       UsageEntry[]
+
+  @@index([slug])
+}
+
+model Membership {
+  id             String   @id @default(uuid())
+  tenantId       String
+  tenant         Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId         String?
+  user           User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  supabaseUserId String
+  email          String   @default("")
+  role           UserRole @default(OPERATOR)
+  createdAt      DateTime @default(now())
+
+  @@unique([tenantId, supabaseUserId])
+  @@index([supabaseUserId])
+  @@index([email])
+}
+
+model TenantSetting {
+  tenantId  String
+  key       String
+  value     Json
+  updatedAt DateTime @updatedAt
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@id([tenantId, key])
+}
+
+/// Provider delivery events. Unique per provider id so retries do not double-apply.
+model DeliveryEvent {
+  id              String   @id @default(uuid())
+  tenantId        String?
+  provider        String
+  providerEventId String
+  type            String
+  email           String?
+  leadId          String?
+  draftId         String?
+  payload         Json     @default("{}")
+  createdAt       DateTime @default(now())
+
+  @@unique([provider, providerEventId])
+  @@index([email])
+  @@index([leadId])
+  @@index([tenantId, type])
+}
+
+/// Local usage ledger. Not a payment balance and not a charge.
+model UsageEntry {
+  id             String   @id @default(uuid())
+  tenantId       String
+  tenant         Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  metric         String
+  quantity       Int      @default(1)
+  status         String   @default("committed")
+  idempotencyKey String
+  draftId        String?
+  createdAt      DateTime @default(now())
+
+  @@unique([tenantId, idempotencyKey])
+  @@index([tenantId, metric, createdAt])
 }

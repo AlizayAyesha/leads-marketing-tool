@@ -1,11 +1,13 @@
 import "server-only";
 
-import type { Prisma, TaskStatus } from "@prisma/client";
+import { Prisma, type TaskStatus } from "@prisma/client";
 
 import { prisma } from "@/lib/db/prisma";
 import { getAgent } from "@/lib/agents/registry";
 import { runLeadPipeline } from "@/lib/pipeline/run";
 import { importFromConfiguredSheet, exportEnrichedSheet } from "@/lib/google/sync";
+import { backoffMs, LEASE_MS, leaseDecision } from "@/lib/queue/claim";
+import { currentPrincipal } from "@/lib/auth/context";
 
 export type TaskType =
   | "PIPELINE_LEAD"
@@ -53,26 +55,114 @@ export async function enqueue(input: {
   leadId?: string | null;
   maxRetries?: number;
   timeoutMs?: number;
+  idempotencyKey?: string | null;
+  tenantId?: string | null;
 }) {
   const agentSlug = (input.payload?.agentSlug as string | undefined) ?? AGENT_FOR_TYPE[input.type];
   const agent = agentSlug
     ? await prisma.agent.findUnique({ where: { slug: agentSlug } })
     : null;
+  const principal = currentPrincipal();
+  const tenantId = input.tenantId ?? (principal?.scope === "tenant" ? principal.tenantId : null);
+  if (input.idempotencyKey) {
+    const existing = await prisma.task.findUnique({ where: { idempotencyKey: input.idempotencyKey } });
+    if (existing && existing.status !== "FAILED" && existing.status !== "CANCELLED") return existing;
+  }
 
-  return prisma.task.create({
-    data: {
-      type: input.type,
-      payload: (input.payload ?? {}) as Prisma.InputJsonValue,
-      leadId: input.leadId ?? null,
-      agentId: agent?.id ?? null,
-      maxRetries: input.maxRetries ?? 2,
-      timeoutMs: input.timeoutMs ?? 90_000,
-      status: "QUEUED",
-    },
-  });
+  try {
+    return await prisma.task.create({
+      data: {
+        type: input.type,
+        payload: (input.payload ?? {}) as Prisma.InputJsonValue,
+        leadId: input.leadId ?? null,
+        agentId: agent?.id ?? null,
+        maxRetries: input.maxRetries ?? 2,
+        timeoutMs: input.timeoutMs ?? 90_000,
+        status: "QUEUED",
+        idempotencyKey: input.idempotencyKey ?? null,
+        tenantId,
+      },
+    });
+  } catch (error) {
+    if (input.idempotencyKey && error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      const existing = await prisma.task.findUnique({ where: { idempotencyKey: input.idempotencyKey } });
+      if (existing) return existing;
+    }
+    throw error;
+  }
 }
 
-export async function processQueue(limit = 5) {
+export async function reclaimExpiredLeases(now = new Date()) {
+  const running = await prisma.task.findMany({
+    where: { status: "RUNNING" },
+    select: { id: true, attempts: true, maxRetries: true, leaseExpiresAt: true, startedAt: true, status: true },
+  });
+  let reclaimed = 0;
+  for (const task of running) {
+    const expiredLegacy =
+      !task.leaseExpiresAt && task.startedAt && now.getTime() - task.startedAt.getTime() > 15 * 60 * 1000;
+    const decision = expiredLegacy
+      ? task.attempts > task.maxRetries
+        ? "fail"
+        : "retry"
+      : leaseDecision(
+          {
+            status: task.status,
+            attempts: task.attempts,
+            maxRetries: task.maxRetries,
+            leaseExpiresAt: task.leaseExpiresAt ? task.leaseExpiresAt.getTime() : null,
+          },
+          now.getTime(),
+        );
+    if (decision === "keep") continue;
+    const result = await prisma.task.updateMany({
+      where: { id: task.id, status: "RUNNING" },
+      data:
+        decision === "fail"
+          ? {
+              status: "FAILED",
+              error: "Lease expired after the retry limit. The send path stays idempotent.",
+              completedAt: now,
+              leaseOwner: null,
+              leaseExpiresAt: null,
+            }
+          : {
+              status: "RETRYING",
+              error: "Lease expired before completion. Requeued.",
+              leaseOwner: null,
+              leaseExpiresAt: null,
+              availableAt: new Date(now.getTime() + backoffMs(task.attempts)),
+            },
+    });
+    reclaimed += result.count;
+  }
+  return reclaimed;
+}
+
+export async function claimTask(taskId: string, workerId: string, now = new Date()) {
+  const result = await prisma.task.updateMany({
+    where: {
+      id: taskId,
+      status: { in: ["QUEUED", "RETRYING"] },
+      availableAt: { lte: now },
+    },
+    data: {
+      status: "RUNNING",
+      leaseOwner: workerId,
+      leaseExpiresAt: new Date(now.getTime() + LEASE_MS),
+      startedAt: now,
+      attempts: { increment: 1 },
+    },
+  });
+  return result.count === 1;
+}
+
+export function workerId() {
+  return `worker-${process.pid}`;
+}
+
+export async function processQueue(limit = 5, owner = workerId()) {
+  await reclaimExpiredLeases();
   const tasks = await prisma.task.findMany({
     where: {
       status: { in: ["QUEUED", "RETRYING"] },
@@ -84,15 +174,16 @@ export async function processQueue(limit = 5) {
   return processQueueParallel(
     tasks.map((task) => task.id),
     Math.min(4, limit),
+    owner,
   );
 }
 
-export async function processQueueParallel(taskIds: string[], concurrency = 4) {
+export async function processQueueParallel(taskIds: string[], concurrency = 4, owner = workerId()) {
   const results: Awaited<ReturnType<typeof runTask>>[] = [];
   const unique = [...new Set(taskIds)];
   for (let index = 0; index < unique.length; index += concurrency) {
     const batch = unique.slice(index, index + concurrency);
-    const settled = await Promise.allSettled(batch.map((id) => runTask(id)));
+    const settled = await Promise.allSettled(batch.map((id) => runTask(id, owner)));
     for (const item of settled) {
       if (item.status === "fulfilled") results.push(item.value);
       else {
@@ -117,7 +208,7 @@ export async function cancelQueuedTasks(taskIds?: string[]) {
   });
 }
 
-export async function runTask(taskId: string) {
+export async function runTask(taskId: string, owner = workerId()) {
   const task = await prisma.task.findUnique({ where: { id: taskId } });
   if (!task) throw new Error("Task not found");
   if (task.status === "CANCELLED") {
@@ -127,14 +218,16 @@ export async function runTask(taskId: string) {
     return { id: taskId, status: "COMPLETED" as TaskStatus, output: task.result };
   }
 
-  await prisma.task.update({
-    where: { id: taskId },
-    data: {
-      status: "RUNNING",
-      attempts: { increment: 1 },
-      startedAt: new Date(),
-    },
-  });
+  let attemptCount = task.attempts;
+  if (task.status === "QUEUED" || task.status === "RETRYING") {
+    const won = await claimTask(taskId, owner);
+    if (!won) return { id: taskId, status: "SKIPPED" as const };
+    attemptCount = task.attempts + 1;
+  } else if (task.status === "RUNNING") {
+    if (task.leaseOwner && task.leaseOwner !== owner) {
+      return { id: taskId, status: "SKIPPED" as const };
+    }
+  }
 
   if (task.agentId) {
     await prisma.agent.update({
@@ -164,6 +257,8 @@ export async function runTask(taskId: string) {
         completedAt: new Date(),
         runId: run.id,
         error: null,
+        leaseOwner: null,
+        leaseExpiresAt: null,
       },
     });
     await prisma.agentRun.update({
@@ -189,7 +284,7 @@ export async function runTask(taskId: string) {
   } catch (error) {
     const message = error instanceof Error ? error.message : "Task failed";
     const timedOut = message.includes("timed out");
-    const attempts = task.attempts + 1;
+    const attempts = attemptCount;
     const retry = attempts <= task.maxRetries && !timedOut;
     const status: TaskStatus = retry ? "RETRYING" : "FAILED";
 
@@ -198,9 +293,11 @@ export async function runTask(taskId: string) {
       data: {
         status,
         error: message,
-        availableAt: retry ? new Date(Date.now() + attempts * 15_000) : undefined,
+        availableAt: retry ? new Date(Date.now() + backoffMs(attempts)) : undefined,
         completedAt: retry ? null : new Date(),
         runId: run.id,
+        leaseOwner: null,
+        leaseExpiresAt: null,
       },
     });
     await prisma.agentRun.update({

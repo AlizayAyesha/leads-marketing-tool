@@ -433,9 +433,10 @@ describe("OpenAI credential manager", () => {
   });
 
   it("encrypts secrets instead of storing plaintext", () => {
-    const encrypted = encryptSecret(SAMPLE_KEY);
+    const env = { CREDENTIAL_ENCRYPTION_KEY: "ab".repeat(32) } as unknown as NodeJS.ProcessEnv;
+    const encrypted = encryptSecret(SAMPLE_KEY, env);
     assert.notEqual(encrypted.ciphertext, SAMPLE_KEY);
-    assert.equal(decryptSecret(encrypted), SAMPLE_KEY);
+    assert.equal(decryptSecret(encrypted, env), SAMPLE_KEY);
   });
 
   it("least-recently-used prefers the oldest lastUsedAt", () => {

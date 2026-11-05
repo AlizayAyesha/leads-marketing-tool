@@ -20,6 +20,7 @@ export const OUTREACH_CLOSED_STATUSES = new Set([
 export const SEQUENCE_REPLY_STOP_REASONS = new Set([
   "REPLY",
   "UNSUBSCRIBE",
+  "BOUNCE",
   "NOT_INTERESTED",
   "WRONG_PERSON",
   "WANTS_MEETING",
@@ -41,6 +42,7 @@ export type MessagingGateInput = {
   leadStatus: string;
   suppressed: boolean;
   unsubscribed: boolean;
+  bounced?: boolean;
   suppressionUnknown?: boolean;
   policyUnknown?: boolean;
   draftStatus?: string | null;
@@ -98,6 +100,7 @@ export function canEnterOutreach(input: {
   auditedAt?: Date | string | null;
   suppressed?: boolean;
   unsubscribed?: boolean;
+  bounced?: boolean;
   suppressionUnknown?: boolean;
   leadStatus?: string;
   sequenceStopReason?: string | null;
@@ -106,6 +109,9 @@ export function canEnterOutreach(input: {
 }): GateDecision {
   if (input.suppressionUnknown) {
     return fail("SUPPRESSION_UNKNOWN", "Suppression state could not be determined. Fail closed.");
+  }
+  if (input.bounced) {
+    return fail("BOUNCED", "This address bounced. Follow-ups are stopped.");
   }
   if (input.suppressed || input.unsubscribed || input.leadStatus === "DO_NOT_CONTACT") {
     return fail("SUPPRESSED", "Lead is suppressed, unsubscribed, or do-not-contact.");
@@ -137,6 +143,7 @@ export function canEnrollInSequence(input: MessagingGateInput): GateDecision {
     auditedAt: input.auditedAt,
     suppressed: input.suppressed,
     unsubscribed: input.unsubscribed,
+    bounced: input.bounced,
     suppressionUnknown: input.suppressionUnknown,
     leadStatus: input.leadStatus,
     sequenceStopReason: input.sequenceStopReason,
@@ -184,6 +191,7 @@ export function canSendMessage(input: MessagingGateInput): GateDecision {
     auditedAt: input.auditedAt,
     suppressed: input.suppressed,
     unsubscribed: input.unsubscribed,
+    bounced: input.bounced,
     suppressionUnknown: input.suppressionUnknown,
     leadStatus: input.leadStatus,
     sequenceStopReason: input.sequenceStopReason,
@@ -192,8 +200,13 @@ export function canSendMessage(input: MessagingGateInput): GateDecision {
   });
   if (!eligibility.ok) return eligibility;
   if (!input.policy.enabled) return fail("ENGINE_OFF", "Outreach engine is off.");
-  if (input.suppressed || input.unsubscribed || input.leadStatus === "DO_NOT_CONTACT") {
-    return fail("SUPPRESSED", "Send blocked: suppressed / unsubscribe / do-not-contact.");
+  if (input.bounced || input.suppressed || input.unsubscribed || input.leadStatus === "DO_NOT_CONTACT") {
+    return fail(
+      input.bounced ? "BOUNCED" : "SUPPRESSED",
+      input.bounced
+        ? "Send blocked: this address bounced."
+        : "Send blocked: suppressed / unsubscribe / do-not-contact.",
+    );
   }
   if (input.sequenceStatus && input.sequenceStatus !== "ACTIVE") {
     return fail("SEQUENCE_STOPPED", "Sequence is not active.");

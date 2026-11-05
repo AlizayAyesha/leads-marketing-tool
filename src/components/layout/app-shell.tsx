@@ -23,10 +23,11 @@ const nav = [
   { href: "/integrations", label: "Connect", icon: Plug },
   { href: "/settings/business", label: "Business Profile", icon: Settings },
   { href: "/settings/senders", label: "Sender inboxes", icon: Inbox },
+  { href: "/settings/billing", label: "Usage", icon: ChartNoAxesCombined },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
-export function AppShell({ children }: { children: React.ReactNode }) {
+export function AppShell({ children, notice }: { children: React.ReactNode; notice?: string | null }) {
   const pathname = usePathname();
 
   return (
@@ -84,7 +85,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             ))}
           </nav>
         </header>
-        <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 md:px-8">{children}</main>
+        <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 md:px-8">
+          {notice ? (
+            <p className="mb-6 rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">{notice}</p>
+          ) : null}
+          {children}
+        </main>
       </div>
     </div>
   );

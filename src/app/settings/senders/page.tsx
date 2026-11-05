@@ -1,6 +1,8 @@
 import { removeSenderAction, updateSenderAction } from "@/lib/actions/senders";
 import { listSenderAccounts } from "@/lib/outreach/sender-accounts";
 import { maxSenderDailyLimit } from "@/lib/outreach/sender-pool";
+import { evaluateSenderConfiguration } from "@/lib/outreach/sender-config";
+import { DomainCheck } from "@/components/settings/domain-check";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/ui/page";
@@ -14,6 +16,7 @@ export default async function SenderInboxesPage({
 }) {
   const params = await searchParams;
   const accounts = await listSenderAccounts().catch(() => []);
+  const sender = evaluateSenderConfiguration();
   const max = maxSenderDailyLimit();
   const error = typeof params.error === "string" ? params.error : null;
   return (
@@ -36,6 +39,19 @@ export default async function SenderInboxesPage({
       <a href="/api/google/oauth?sender=1" className="mb-6 inline-block">
         <Button type="button">+ Connect a Gmail inbox</Button>
       </a>
+      <section className="mb-6 rounded-lg border border-white/10 p-4 text-sm">
+        <p className="font-semibold">{sender.readyForProductionSend ? "Sender configuration is complete enough to send" : "Sender configuration is blocking sends"}</p>
+        <ul className="mt-2 list-disc pl-5 text-muted">
+          {sender.problems.map((problem) => (
+            <li key={problem}>{problem}</li>
+          ))}
+        </ul>
+        <p className="mt-3 text-muted">
+          Postal address on file: {sender.address || "not set"}. From override: {sender.fromEmail || "the connected Gmail mailbox, when one is connected"}.
+          Gmail OAuth does not authenticate a different domain.
+        </p>
+        <DomainCheck fromEmail={sender.fromEmail} />
+      </section>
       {accounts.length === 0 ? (
         <p className="text-sm text-muted">No sender inboxes yet. Without any, sends use the single Google connection from Settings.</p>
       ) : (
